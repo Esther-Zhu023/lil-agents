@@ -3,7 +3,7 @@ import Foundation
 // MARK: - Provider
 
 enum AgentProvider: String, CaseIterable {
-    case claude, codex, copilot, gemini
+    case claude, codex, copilot, gemini, opencode
 
     private static let defaultsKey = "selectedProvider"
 
@@ -19,10 +19,11 @@ enum AgentProvider: String, CaseIterable {
 
     var displayName: String {
         switch self {
-        case .claude:  return "Claude"
-        case .codex:   return "Codex"
-        case .copilot: return "Copilot"
-        case .gemini:  return "Gemini"
+        case .claude:   return "Claude"
+        case .codex:    return "Codex"
+        case .copilot:  return "Copilot"
+        case .gemini:   return "Gemini"
+        case .opencode: return "OpenCode"
         }
     }
 
@@ -34,9 +35,52 @@ enum AgentProvider: String, CaseIterable {
     func titleString(format: TitleFormat) -> String {
         switch format {
         case .uppercase:      return displayName.uppercased()
-        case .lowercaseTilde: return "\(displayName.lowercased()) ~"
+        case .lowercaseTilde: return displayName.lowercased()
         case .capitalized:    return displayName
         }
+    }
+
+    var binaryName: String {
+        switch self {
+        case .claude:   return "claude"
+        case .codex:    return "codex"
+        case .copilot:  return "copilot"
+        case .gemini:   return "gemini"
+        case .opencode: return "opencode"
+        }
+    }
+
+    /// Cache of provider availability, populated by `detectAvailableProviders`.
+    private(set) static var availability: [AgentProvider: Bool] = [:]
+
+    /// Scan PATH for all provider binaries and call completion when done.
+    static func detectAvailableProviders(completion: @escaping () -> Void) {
+        let all = AgentProvider.allCases
+        let group = DispatchGroup()
+        for provider in all {
+            group.enter()
+            let home = FileManager.default.homeDirectoryForCurrentUser.path
+            ShellEnvironment.findBinary(name: provider.binaryName, fallbackPaths: [
+                "\(home)/.local/bin/\(provider.binaryName)",
+                "/usr/local/bin/\(provider.binaryName)",
+                "/opt/homebrew/bin/\(provider.binaryName)"
+            ]) { path in
+                availability[provider] = path != nil
+                group.leave()
+            }
+        }
+        group.notify(queue: .main) {
+            completion()
+        }
+    }
+
+    var isAvailable: Bool {
+        AgentProvider.availability[self] ?? false
+    }
+
+    /// Returns the first available provider, or `.claude` as fallback.
+    static var firstAvailable: AgentProvider {
+        allCases.first(where: { $0.isAvailable }) ?? .claude
     }
 
     var installInstructions: String {
@@ -49,15 +93,18 @@ enum AgentProvider: String, CaseIterable {
             return "To install, run this in Terminal:\n  brew install copilot-cli\n\nOr: npm install -g @github/copilot-cli"
         case .gemini:
             return "To install, run this in Terminal:\n  npm install -g @google/gemini-cli\n\nThen authenticate:\n  gemini auth"
+        case .opencode:
+            return "To install, run this in Terminal:\n  curl -fsSL https://opencode.ai/install | bash"
         }
     }
 
     func createSession() -> any AgentSession {
         switch self {
-        case .claude:  return ClaudeSession()
-        case .codex:   return CodexSession()
-        case .copilot: return CopilotSession()
-        case .gemini:  return GeminiSession()
+        case .claude:   return ClaudeSession()
+        case .codex:    return CodexSession()
+        case .copilot:  return CopilotSession()
+        case .gemini:   return GeminiSession()
+        case .opencode: return OpenCodeSession()
         }
     }
 }

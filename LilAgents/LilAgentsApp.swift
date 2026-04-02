@@ -51,17 +51,34 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         soundItem.state = .on
         menu.addItem(soundItem)
 
-        // Provider submenu
+        // Provider submenu (applies to all characters)
         let providerItem = NSMenuItem(title: "Provider", action: nil, keyEquivalent: "")
         let providerMenu = NSMenu()
+        let currentProvider = controller?.characters.first?.provider ?? .claude
         for (i, provider) in AgentProvider.allCases.enumerated() {
             let item = NSMenuItem(title: provider.displayName, action: #selector(switchProvider(_:)), keyEquivalent: "")
             item.tag = i
-            item.state = provider == AgentProvider.current ? .on : .off
+            item.state = provider == currentProvider ? .on : .off
+            if !provider.isAvailable {
+                item.isEnabled = false
+            }
             providerMenu.addItem(item)
         }
         providerItem.submenu = providerMenu
         menu.addItem(providerItem)
+
+        // Size submenu (applies to all characters)
+        let sizeItem = NSMenuItem(title: "Size", action: nil, keyEquivalent: "")
+        let sizeMenu = NSMenu()
+        let currentSize = controller?.characters.first?.size ?? .big
+        for (i, size) in CharacterSize.allCases.enumerated() {
+            let item = NSMenuItem(title: size.displayName, action: #selector(switchCharacterSize(_:)), keyEquivalent: "")
+            item.tag = i
+            item.state = size == currentSize ? .on : .off
+            sizeMenu.addItem(item)
+        }
+        sizeItem.submenu = sizeMenu
+        menu.addItem(sizeItem)
 
         // Theme submenu
         let themeItem = NSMenuItem(title: "Style", action: nil, keyEquivalent: "")
@@ -146,27 +163,39 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let idx = sender.tag
         let allProviders = AgentProvider.allCases
         guard idx < allProviders.count else { return }
-        AgentProvider.current = allProviders[idx]
+        let newProvider = allProviders[idx]
+
+        controller?.characters.forEach { char in
+            if char.provider == newProvider { return }
+            char.provider = newProvider
+            char.session?.terminate()
+            char.session = nil
+            char.popoverWindow?.orderOut(nil)
+            char.popoverWindow = nil
+            char.terminalView = nil
+            char.thinkingBubbleWindow?.orderOut(nil)
+            char.thinkingBubbleWindow = nil
+        }
 
         if let providerMenu = sender.menu {
             for item in providerMenu.items {
                 item.state = item.tag == idx ? .on : .off
             }
         }
+    }
 
-        // Terminate existing sessions and clear UI so title/placeholder update
-        controller?.characters.forEach { char in
-            char.session?.terminate()
-            char.session = nil
-            if char.isIdleForPopover {
-                char.closePopover()
+    @objc func switchCharacterSize(_ sender: NSMenuItem) {
+        let idx = sender.tag
+        let allSizes = CharacterSize.allCases
+        guard idx < allSizes.count else { return }
+        let newSize = allSizes[idx]
+
+        controller?.characters.forEach { $0.size = newSize }
+
+        if let sizeMenu = sender.menu {
+            for item in sizeMenu.items {
+                item.state = item.tag == idx ? .on : .off
             }
-            // Always clear popover/bubble so they rebuild with new provider title/placeholder
-            char.popoverWindow?.orderOut(nil)
-            char.popoverWindow = nil
-            char.terminalView = nil
-            char.thinkingBubbleWindow?.orderOut(nil)
-            char.thinkingBubbleWindow = nil
         }
     }
 
@@ -201,17 +230,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             sender.state = .off
         } else {
             char.setManuallyVisible(true)
-            sender.state = .on
-        }
-    }
-
-    @objc func toggleDebug(_ sender: NSMenuItem) {
-        guard let debugWin = controller?.debugWindow else { return }
-        if debugWin.isVisible {
-            debugWin.orderOut(nil)
-            sender.state = .off
-        } else {
-            debugWin.orderFrontRegardless()
             sender.state = .on
         }
     }

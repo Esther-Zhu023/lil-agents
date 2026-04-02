@@ -1,8 +1,46 @@
 import AVFoundation
 import AppKit
 
+enum CharacterSize: String, CaseIterable {
+    case big, medium, small
+    var height: CGFloat {
+        switch self {
+        case .big: return 200
+        case .medium: return 150
+        case .small: return 100
+        }
+    }
+    var displayName: String {
+        switch self {
+        case .big: return "Big"
+        case .medium: return "Medium"
+        case .small: return "Small"
+        }
+    }
+}
+
 class WalkerCharacter {
     let videoName: String
+    let name: String
+    var provider: AgentProvider {
+        get {
+            let raw = UserDefaults.standard.string(forKey: "\(name)Provider") ?? "claude"
+            return AgentProvider(rawValue: raw) ?? .claude
+        }
+        set {
+            UserDefaults.standard.set(newValue.rawValue, forKey: "\(name)Provider")
+        }
+    }
+    var size: CharacterSize {
+        get {
+            let raw = UserDefaults.standard.string(forKey: "\(name)Size") ?? "big"
+            return CharacterSize(rawValue: raw) ?? .big
+        }
+        set {
+            UserDefaults.standard.set(newValue.rawValue, forKey: "\(name)Size")
+            updateDimensions()
+        }
+    }
     var window: NSWindow!
     var playerLayer: AVPlayerLayer!
     var queuePlayer: AVQueuePlayer!
@@ -10,7 +48,7 @@ class WalkerCharacter {
 
     let videoWidth: CGFloat = 1080
     let videoHeight: CGFloat = 1920
-    let displayHeight: CGFloat = 200
+    private(set) var displayHeight: CGFloat = 200
     var displayWidth: CGFloat { displayHeight * (videoWidth / videoHeight) }
 
     // Walk timing (per-character, from frame analysis)
@@ -59,11 +97,36 @@ class WalkerCharacter {
     private var wasPopoverVisibleBeforeEnvironmentHide = false
     private var wasBubbleVisibleBeforeEnvironmentHide = false
 
-    init(videoName: String) {
+    init(videoName: String, name: String) {
         self.videoName = videoName
+        self.name = name
+        self.displayHeight = size.height
     }
 
     // MARK: - Setup
+
+    func updateDimensions() {
+        displayHeight = size.height
+        let newWidth = displayWidth
+        let newHeight = displayHeight
+        
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self, let window = self.window else { return }
+            let oldFrame = window.frame
+            let newFrame = CGRect(x: oldFrame.origin.x, y: oldFrame.origin.y, width: newWidth, height: newHeight)
+            
+            CATransaction.begin()
+            CATransaction.setDisableActions(true)
+            window.setFrame(newFrame, display: true)
+            self.playerLayer.frame = CGRect(x: 0, y: 0, width: newWidth, height: newHeight)
+            if let hostView = window.contentView {
+                hostView.frame = CGRect(x: 0, y: 0, width: newWidth, height: newHeight)
+            }
+            CATransaction.commit()
+            
+            self.updateFlip()
+        }
+    }
 
     func setup() {
         guard let videoURL = Bundle.main.url(forResource: videoName, withExtension: "mov") else {
@@ -258,7 +321,7 @@ class WalkerCharacter {
         hideBubble()
 
         if session == nil {
-            let newSession = AgentProvider.current.createSession()
+            let newSession = provider.createSession()
             session = newSession
             wireSession(newSession)
             newSession.start()
@@ -375,11 +438,29 @@ class WalkerCharacter {
         titleBar.layer?.backgroundColor = t.titleBarBg.cgColor
         container.addSubview(titleBar)
 
-        let titleLabel = NSTextField(labelWithString: t.titleString)
+        let titleLabel = NSTextField(labelWithString: t.titleString(for: provider))
         titleLabel.font = t.titleFont
         titleLabel.textColor = t.titleText
-        titleLabel.frame = NSRect(x: 12, y: 6, width: popoverWidth - 80, height: 16)
+        titleLabel.sizeToFit()
+        titleLabel.frame.origin = NSPoint(x: 12, y: 6)
         titleBar.addSubview(titleLabel)
+
+        let arrowBtn = NSButton(frame: NSRect(x: titleLabel.frame.maxX + 2, y: 5, width: 16, height: 16))
+        arrowBtn.image = NSImage(systemSymbolName: "chevron.down", accessibilityDescription: "Switch provider")
+        arrowBtn.imageScaling = .scaleProportionallyDown
+        arrowBtn.bezelStyle = .inline
+        arrowBtn.isBordered = false
+        arrowBtn.contentTintColor = t.titleText.withAlphaComponent(0.75)
+        arrowBtn.target = self
+        arrowBtn.action = #selector(showProviderMenu(_:))
+        titleBar.addSubview(arrowBtn)
+
+        // Make the title label clickable too
+        let clickArea = NSButton(frame: NSRect(x: 0, y: 0, width: arrowBtn.frame.maxX + 4, height: 28))
+        clickArea.isTransparent = true
+        clickArea.target = self
+        clickArea.action = #selector(showProviderMenu(_:))
+        titleBar.addSubview(clickArea)
 
         let refreshBtn = NSButton(frame: NSRect(x: popoverWidth - 48, y: 5, width: 16, height: 16))
         refreshBtn.image = NSImage(systemSymbolName: "arrow.clockwise", accessibilityDescription: "Refresh")
@@ -409,6 +490,7 @@ class WalkerCharacter {
         let terminal = TerminalView(frame: NSRect(x: 0, y: 0, width: popoverWidth, height: popoverHeight - 29))
         terminal.characterColor = characterColor
         terminal.themeOverride = themeOverride
+        terminal.provider = provider
         terminal.autoresizingMask = [.width, .height]
         terminal.onSendMessage = { [weak self] message in
             self?.session?.send(message: message)
@@ -433,13 +515,13 @@ class WalkerCharacter {
         hideBubble()
         terminalView?.resetState()
         terminalView?.showSessionMessage()
-        let newSession = AgentProvider.current.createSession()
+        let newSession = provider.createSession()
         session = newSession
         wireSession(newSession)
         newSession.start()
     }
 
-    private func wireSession(_ session: any AgentSession, providerName: String = AgentProvider.current.displayName) {
+    private func wireSession(_ session: any AgentSession) {
         session.onText = { [weak self] text in
             self?.currentStreamingText += text
             self?.terminalView?.appendStreamingText(text)
@@ -466,11 +548,50 @@ class WalkerCharacter {
         }
 
         session.onProcessExit = { [weak self] in
-            self?.terminalView?.endStreaming()
-            self?.terminalView?.appendError("\(providerName) session ended.")
+            guard let self = self else { return }
+            self.terminalView?.endStreaming()
+            self.terminalView?.appendError("\(self.provider.displayName) session ended.")
         }
 
         session.onSessionReady = { }
+    }
+
+    @objc func showProviderMenu(_ sender: Any) {
+        let menu = NSMenu()
+        let menuFont = NSFont.systemFont(ofSize: 12, weight: .regular)
+        for p in AgentProvider.allCases {
+            let item = NSMenuItem(title: p.displayName, action: #selector(providerMenuItemSelected(_:)), keyEquivalent: "")
+            item.target = self
+            item.attributedTitle = NSAttributedString(string: p.displayName, attributes: [.font: menuFont])
+            item.representedObject = p.rawValue
+            if p == provider {
+                item.state = .on
+            }
+            if !p.isAvailable {
+                item.isEnabled = false
+            }
+            menu.addItem(item)
+        }
+        // Show menu below the title bar area
+        if let titleBar = popoverWindow?.contentView?.subviews.first(where: { $0.frame.origin.y > 0 && $0.frame.height == 28 }) {
+            menu.popUp(positioning: nil, at: NSPoint(x: 10, y: 0), in: titleBar)
+        }
+    }
+
+    @objc func providerMenuItemSelected(_ sender: NSMenuItem) {
+        guard let raw = sender.representedObject as? String,
+              let newProvider = AgentProvider(rawValue: raw),
+              newProvider != provider else { return }
+        provider = newProvider
+        // Terminate existing session and rebuild popover for new provider
+        session?.terminate()
+        session = nil
+        popoverWindow?.orderOut(nil)
+        popoverWindow = nil
+        terminalView = nil
+        thinkingBubbleWindow?.orderOut(nil)
+        thinkingBubbleWindow = nil
+        openPopover()
     }
 
     @objc func copyLastResponseFromButton() {
