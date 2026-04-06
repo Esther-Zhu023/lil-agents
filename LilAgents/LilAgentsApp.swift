@@ -60,11 +60,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             item.state = provider == AgentProvider.current ? .on : .off
             providerMenu.addItem(item)
         }
+        providerMenu.addItem(NSMenuItem.separator())
+        let gatewayItem = NSMenuItem(title: "Advanced Settings\u{2026}", action: #selector(openGatewaySettings), keyEquivalent: "")
+        gatewayItem.tag = -1
+        providerMenu.addItem(gatewayItem)
+
         providerItem.submenu = providerMenu
         menu.addItem(providerItem)
-
-        let gatewayItem = NSMenuItem(title: "OpenClaw Settings...", action: #selector(openGatewaySettings), keyEquivalent: ",")
-        menu.addItem(gatewayItem)
 
         // Theme submenu
         let themeItem = NSMenuItem(title: "Style", action: nil, keyEquivalent: "")

@@ -366,34 +366,48 @@ class OpenClawSession: AgentSession {
 
     // MARK: Settings UI
 
-    /// Presents a gateway configuration panel.  Call from the menu bar action.
+    /// Presents the OpenClaw connection settings panel.
     static func showSettingsPanel(onSave: (() -> Void)? = nil) {
         let config = OpenClawConfig.load()
         let alert = NSAlert()
-        alert.messageText = "OpenClaw Gateway"
-        alert.informativeText = "Configure your gateway connection.\nAlso reads OPENCLAW_GATEWAY_URL and OPENCLAW_GATEWAY_TOKEN environment variables."
+        alert.messageText = "OpenClaw Connection"
+        alert.informativeText = "Connect lil agents to your OpenClaw gateway. You can find these details in your OpenClaw dashboard or from your server administrator."
         alert.alertStyle = .informational
         alert.addButton(withTitle: "Save")
         alert.addButton(withTitle: "Cancel")
 
-        let container = NSView(frame: NSRect(x: 0, y: 0, width: 380, height: 140))
+        let container = NSView(frame: NSRect(x: 0, y: 0, width: 400, height: 220))
 
-        func addRow(_ label: String, value: String, placeholder: String, y: CGFloat, secure: Bool = false) -> NSTextField {
+        func addRow(_ label: String, value: String, placeholder: String, tooltip: String, y: CGFloat, secure: Bool = false) -> NSTextField {
             let lbl = NSTextField(labelWithString: label)
-            lbl.frame = NSRect(x: 0, y: y + 2, width: 105, height: 20)
+            lbl.frame = NSRect(x: 0, y: y + 2, width: 115, height: 20)
+            lbl.font = .systemFont(ofSize: 13)
+            lbl.toolTip = tooltip
             container.addSubview(lbl)
             let field = secure ? NSSecureTextField(frame: .zero) : NSTextField(frame: .zero)
-            field.frame = NSRect(x: 110, y: y, width: 265, height: 24)
+            field.frame = NSRect(x: 120, y: y, width: 275, height: 24)
             field.stringValue = value
             field.placeholderString = placeholder
+            field.toolTip = tooltip
             container.addSubview(field)
             return field
         }
 
-        let urlField    = addRow("Gateway URL:", value: config.gatewayURL, placeholder: "ws://localhost:3001", y: 112)
-        let tokenField  = addRow("Auth Token:", value: config.authToken, placeholder: "Your gateway token", y: 78, secure: true)
-        let prefixField = addRow("Session Prefix:", value: config.sessionKeyPrefix, placeholder: "lil-agents", y: 44)
-        let agentField  = addRow("Agent ID:", value: config.agentId ?? "", placeholder: "main (optional)", y: 10)
+        let urlField    = addRow("Server Address:", value: config.gatewayURL, placeholder: "ws://localhost:3001",
+                                 tooltip: "The WebSocket URL of your OpenClaw gateway (e.g. ws://localhost:3001 or wss://gateway.example.com).", y: 188)
+        let tokenField  = addRow("Auth Token:", value: config.authToken, placeholder: "Paste your token here",
+                                 tooltip: "The authentication token for your gateway. You can also set this via the OPENCLAW_GATEWAY_TOKEN environment variable.", y: 148, secure: true)
+        let prefixField = addRow("Session Prefix:", value: config.sessionKeyPrefix, placeholder: "lil-agents",
+                                 tooltip: "A label used to group your conversations on the server. Each character gets its own session within this prefix.", y: 108)
+        let agentField  = addRow("Agent ID:", value: config.agentId ?? "", placeholder: "Optional",
+                                 tooltip: "Route messages to a specific agent on the gateway (e.g. \"coder\" or \"writer\"). Leave blank to use the server default.", y: 68)
+
+        // Hint text at the bottom
+        let hint = NSTextField(wrappingLabelWithString: "Tip: You can also configure the server address and token using the OPENCLAW_GATEWAY_URL and OPENCLAW_GATEWAY_TOKEN environment variables.")
+        hint.frame = NSRect(x: 0, y: 0, width: 400, height: 52)
+        hint.font = .systemFont(ofSize: 11)
+        hint.textColor = .secondaryLabelColor
+        container.addSubview(hint)
 
         alert.accessoryView = container
 
