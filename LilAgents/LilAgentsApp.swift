@@ -2,6 +2,12 @@ import SwiftUI
 import AppKit
 import Sparkle
 
+extension Array {
+    subscript(safe index: Int) -> Element? {
+        return indices.contains(index) ? self[index] : nil
+    }
+}
+
 @main
 struct LilAgentsApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
@@ -45,32 +51,53 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         char2Item.state = .on
         menu.addItem(char2Item)
 
+        let char3Item = NSMenuItem(title: "Nova", action: #selector(toggleChar3), keyEquivalent: "3")
+        char3Item.state = .on
+        menu.addItem(char3Item)
+
+        let char4Item = NSMenuItem(title: "Zoey", action: #selector(toggleChar4), keyEquivalent: "4")
+        char4Item.state = .on
+        menu.addItem(char4Item)
+
+        menu.addItem(NSMenuItem.separator())
+
+        // Per-character provider submenus
+        func buildProviderSubmenu(for charIndex: Int, charName: String) -> NSMenu {
+            let submenu = NSMenu()
+            let currentProvider = controller?.characters[safe: charIndex]?.provider ?? .claude
+            for (i, provider) in AgentProvider.allCases.enumerated() {
+                let item = NSMenuItem(title: provider.displayName, action: #selector(switchProviderForChar(_:)), keyEquivalent: "")
+                item.tag = charIndex * 100 + i
+                item.state = provider == currentProvider ? .on : .off
+                if !provider.isAvailable {
+                    item.isEnabled = false
+                }
+                submenu.addItem(item)
+            }
+            submenu.addItem(NSMenuItem.separator())
+            let gatewayItem = NSMenuItem(title: "OpenClaw Settings\u{2026}", action: #selector(openGatewaySettings), keyEquivalent: "")
+            gatewayItem.tag = -1
+            submenu.addItem(gatewayItem)
+            return submenu
+        }
+
+        let bruceProviderItem = NSMenuItem(title: "Bruce's AI", action: nil, keyEquivalent: "")
+        bruceProviderItem.submenu = buildProviderSubmenu(for: 0, charName: "Bruce")
+        menu.addItem(bruceProviderItem)
+
+        let jazzProviderItem = NSMenuItem(title: "Jazz's AI", action: nil, keyEquivalent: "")
+        jazzProviderItem.submenu = buildProviderSubmenu(for: 1, charName: "Jazz")
+        menu.addItem(jazzProviderItem)
+
+        let novaProviderItem = NSMenuItem(title: "Nova's AI", action: nil, keyEquivalent: "")
+        novaProviderItem.submenu = buildProviderSubmenu(for: 2, charName: "Nova")
+        menu.addItem(novaProviderItem)
+
         menu.addItem(NSMenuItem.separator())
 
         let soundItem = NSMenuItem(title: "Sounds", action: #selector(toggleSounds(_:)), keyEquivalent: "")
         soundItem.state = .on
         menu.addItem(soundItem)
-
-        // Provider submenu (applies to all characters)
-        let providerItem = NSMenuItem(title: "Provider", action: nil, keyEquivalent: "")
-        let providerMenu = NSMenu()
-        let currentProvider = controller?.characters.first?.provider ?? .claude
-        for (i, provider) in AgentProvider.allCases.enumerated() {
-            let item = NSMenuItem(title: provider.displayName, action: #selector(switchProvider(_:)), keyEquivalent: "")
-            item.tag = i
-            item.state = provider == currentProvider ? .on : .off
-            if !provider.isAvailable {
-                item.isEnabled = false
-            }
-            providerMenu.addItem(item)
-        }
-        providerMenu.addItem(NSMenuItem.separator())
-        let gatewayItem = NSMenuItem(title: "Advanced Settings\u{2026}", action: #selector(openGatewaySettings), keyEquivalent: "")
-        gatewayItem.tag = -1
-        providerMenu.addItem(gatewayItem)
-
-        providerItem.submenu = providerMenu
-        menu.addItem(providerItem)
 
         // Size submenu (applies to all characters)
         let sizeItem = NSMenuItem(title: "Size", action: nil, keyEquivalent: "")
@@ -189,6 +216,39 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
+    @objc func switchProviderForChar(_ sender: NSMenuItem) {
+        let charIndex = sender.tag / 100
+        let providerIndex = sender.tag % 100
+        let allProviders = AgentProvider.allCases
+        guard providerIndex < allProviders.count,
+              let chars = controller?.characters,
+              charIndex < chars.count else { return }
+        let newProvider = allProviders[providerIndex]
+        let char = chars[charIndex]
+
+        if char.provider != newProvider {
+            char.provider = newProvider
+            char.session?.terminate()
+            char.session = nil
+            char.popoverWindow?.orderOut(nil)
+            char.popoverWindow = nil
+            char.terminalView = nil
+            char.thinkingBubbleWindow?.orderOut(nil)
+            char.thinkingBubbleWindow = nil
+        }
+
+        // Update all submenus to reflect correct state
+        for (i, c) in chars.enumerated() {
+            guard let menuItem = statusItem?.menu?.item(withTitle: "\(c.name)'s AI"),
+                  let submenu = menuItem.submenu else { continue }
+            for item in submenu.items {
+                let pIdx = item.tag % 100
+                let isOn = (i == charIndex && pIdx == providerIndex)
+                item.state = isOn ? .on : .off
+            }
+        }
+    }
+
     @objc func switchCharacterSize(_ sender: NSMenuItem) {
         let idx = sender.tag
         let allSizes = CharacterSize.allCases
@@ -230,6 +290,30 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     @objc func toggleChar2(_ sender: NSMenuItem) {
         guard let chars = controller?.characters, chars.count > 1 else { return }
         let char = chars[1]
+        if char.isManuallyVisible {
+            char.setManuallyVisible(false)
+            sender.state = .off
+        } else {
+            char.setManuallyVisible(true)
+            sender.state = .on
+        }
+    }
+
+    @objc func toggleChar3(_ sender: NSMenuItem) {
+        guard let chars = controller?.characters, chars.count > 2 else { return }
+        let char = chars[2]
+        if char.isManuallyVisible {
+            char.setManuallyVisible(false)
+            sender.state = .off
+        } else {
+            char.setManuallyVisible(true)
+            sender.state = .on
+        }
+    }
+
+    @objc func toggleChar4(_ sender: NSMenuItem) {
+        guard let chars = controller?.characters, chars.count > 3 else { return }
+        let char = chars[3]
         if char.isManuallyVisible {
             char.setManuallyVisible(false)
             sender.state = .off

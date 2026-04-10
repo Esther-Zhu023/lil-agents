@@ -11,14 +11,17 @@ class LilAgentsController {
     func start() {
         let char1 = WalkerCharacter(videoName: "walk-bruce-01", name: "Bruce")
         let char2 = WalkerCharacter(videoName: "walk-jazz-01", name: "Jazz")
+        let char3 = WalkerCharacter(videoName: "walk-nova-01", name: "Nova")
+        let char4 = WalkerCharacter(videoName: "walk-zoey-01", name: "Zoey")
 
         // Detect available providers, then set first-run defaults
-        AgentProvider.detectAvailableProviders { [weak char1, weak char2] in
-            guard let char1 = char1, let char2 = char2 else { return }
+        AgentProvider.detectAvailableProviders { [weak char1, weak char2, weak char3, weak char4] in
+            guard let char1 = char1, let char2 = char2, let char3 = char3, let char4 = char4 else { return }
             if !UserDefaults.standard.bool(forKey: Self.onboardingKey) {
-                let first = AgentProvider.firstAvailable
-                char1.provider = first
-                char2.provider = first
+                char1.provider = .hermes
+                char2.provider = .openclaw
+                char3.provider = .claude
+                char4.provider = .hermes
             }
         }
 
@@ -38,19 +41,43 @@ class LilAgentsController {
         char1.characterColor = NSColor(red: 0.4, green: 0.72, blue: 0.55, alpha: 1.0)
         char2.characterColor = NSColor(red: 1.0, green: 0.4, blue: 0.0, alpha: 1.0)
 
+        char3.accelStart = 3.5
+        char3.fullSpeedStart = 4.2
+        char3.decelStart = 8.0
+        char3.walkStop = 8.6
+        char3.walkAmountRange = 0.38...0.58
+        char3.yOffset = -5
+        char3.characterColor = NSColor(red: 0.2, green: 0.4, blue: 1.0, alpha: 1.0)
+
+        char4.accelStart = 3.3
+        char4.fullSpeedStart = 4.0
+        char4.decelStart = 8.0
+        char4.walkStop = 8.7
+        char4.walkAmountRange = 0.36...0.62
+        char4.yOffset = -6
+        char4.characterColor = NSColor(red: 0.0, green: 0.8, blue: 0.8, alpha: 1.0)
+
         char1.flipXOffset = 0
         char2.flipXOffset = -9
+        char3.flipXOffset = -4
+        char4.flipXOffset = -6
 
-        char1.positionProgress = 0.3
-        char2.positionProgress = 0.7
+        char1.positionProgress = 0.15
+        char2.positionProgress = 0.38
+        char3.positionProgress = 0.62
+        char4.positionProgress = 0.85
 
         char1.pauseEndTime = CACurrentMediaTime() + Double.random(in: 0.5...2.0)
         char2.pauseEndTime = CACurrentMediaTime() + Double.random(in: 8.0...14.0)
+        char3.pauseEndTime = CACurrentMediaTime() + Double.random(in: 3.0...7.0)
+        char4.pauseEndTime = CACurrentMediaTime() + Double.random(in: 2.0...6.0)
 
         char1.setup()
         char2.setup()
+        char3.setup()
+        char4.setup()
 
-        characters = [char1, char2]
+        characters = [char1, char2, char3, char4]
         characters.forEach { $0.controller = self }
 
         setupDebugLine()
@@ -228,7 +255,7 @@ class LilAgentsController {
 
         updateDebugLine(dockX: dockX, dockWidth: dockWidth, dockTopY: dockTopY)
 
-        let activeChars = characters.filter { $0.window.isVisible && $0.isManuallyVisible }
+        let activeChars = characters.filter { $0.window?.isVisible == true && $0.isManuallyVisible }
 
         let now = CACurrentMediaTime()
         let anyWalking = activeChars.contains { $0.isWalking }

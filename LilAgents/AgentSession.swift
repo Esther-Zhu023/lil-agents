@@ -3,7 +3,7 @@ import Foundation
 // MARK: - Provider
 
 enum AgentProvider: String, CaseIterable {
-    case claude, codex, copilot, gemini, opencode, openclaw
+    case claude, codex, copilot, gemini, opencode, openclaw, hermes
 
     private static let defaultsKey = "selectedProvider"
 
@@ -25,6 +25,7 @@ enum AgentProvider: String, CaseIterable {
         case .gemini:   return "Gemini"
         case .opencode: return "OpenCode"
         case .openclaw: return "OpenClaw"
+        case .hermes:   return "Hermes"
         }
     }
 
@@ -49,6 +50,7 @@ enum AgentProvider: String, CaseIterable {
         case .gemini:   return "gemini"
         case .opencode: return "opencode"
         case .openclaw: return "openclaw"
+        case .hermes:   return "hermes"
         }
     }
 
@@ -63,6 +65,21 @@ enum AgentProvider: String, CaseIterable {
             // OpenClaw is network-based, not a local binary
             if provider == .openclaw {
                 availability[provider] = OpenClawConfig.load().authToken.isEmpty == false
+                continue
+            }
+            // Hermes: check for both the CLI and the Python wrapper
+            if provider == .hermes {
+                let wrapperExists = FileManager.default.fileExists(atPath: NSHomeDirectory() + "/.local/bin/hermes-json-wrapper.py") ||
+                    FileManager.default.fileExists(atPath: "/tmp/hermes-json-wrapper.py")
+                group.enter()
+                let home = FileManager.default.homeDirectoryForCurrentUser.path
+                ShellEnvironment.findBinary(name: "hermes", fallbackPaths: [
+                    "\(home)/.local/bin/hermes",
+                    "\(home)/.hermes/hermes-agent/venv/bin/hermes"
+                ]) { path in
+                    availability[provider] = path != nil && wrapperExists
+                    group.leave()
+                }
                 continue
             }
             group.enter()
@@ -83,6 +100,11 @@ enum AgentProvider: String, CaseIterable {
 
     var isAvailable: Bool {
         if self == .openclaw { return OpenClawConfig.load().authToken.isEmpty == false }
+        if self == .hermes {
+            let wrapperExists = FileManager.default.fileExists(atPath: NSHomeDirectory() + "/.local/bin/hermes-json-wrapper.py") ||
+                FileManager.default.fileExists(atPath: "/tmp/hermes-json-wrapper.py")
+            return (AgentProvider.availability[self] ?? false) && wrapperExists
+        }
         return AgentProvider.availability[self] ?? false
     }
 
@@ -105,6 +127,8 @@ enum AgentProvider: String, CaseIterable {
             return "To install, run this in Terminal:\n  curl -fsSL https://opencode.ai/install | bash"
         case .openclaw:
             return "OpenClaw is a self-hosted AI gateway.\n\nInstall: npm install -g openclaw\nStart:   openclaw gateway run\n\nDocs: https://docs.openclaw.ai"
+        case .hermes:
+            return "Hermes is a Nous Research AI agent.\n\nInstall Hermes CLI:\n  curl -fsSL https://raw.githubusercontent.com/NousResearch/hermes-agent/main/scripts/install.sh | bash\n\nInstall Lil Agents wrapper:\n  cp /tmp/hermes-json-wrapper.py ~/.local/bin/hermes-json-wrapper.py\n  chmod +x ~/.local/bin/hermes-json-wrapper.py"
         }
     }
 
@@ -116,6 +140,7 @@ enum AgentProvider: String, CaseIterable {
         case .gemini:   return GeminiSession()
         case .opencode: return OpenCodeSession()
         case .openclaw: return OpenClawSession()
+        case .hermes:   return HermesSession()
         }
     }
 }

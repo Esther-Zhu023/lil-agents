@@ -82,7 +82,7 @@ struct OpenClawConfig {
 
     static func load() -> OpenClawConfig {
         var config = OpenClawConfig(
-            gatewayURL:       defaults.string(forKey: "openClawGatewayURL") ?? "ws://localhost:3001",
+            gatewayURL:       defaults.string(forKey: "openClawGatewayURL") ?? "ws://localhost:18789",
             authToken:        defaults.string(forKey: "openClawAuthToken") ?? "",
             sessionKeyPrefix: defaults.string(forKey: "openClawSessionPrefix") ?? "lil-agents",
             agentId:          defaults.string(forKey: "openClawAgentId")
