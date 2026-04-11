@@ -8,7 +8,7 @@ Tiny AI companions that live on your macOS dock.
 
 Supports **Claude Code**, **OpenClaw**, **Hermes**, **OpenAI Codex**, **GitHub Copilot**, and **Google Gemini** CLIs — each character can run a different agent simultaneously.
 
-**[Download for macOS](https://lilagents.xyz)** 
+**[Download for macOS](https://github.com/Esther-Zhu023/lil-agents/releases/latest)** 
 
 ---
 

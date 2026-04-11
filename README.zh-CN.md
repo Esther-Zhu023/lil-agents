@@ -8,7 +8,7 @@
 
 支持多种 AI Agent：**Claude Code**、**OpenClaw**、**Hermes**、**OpenAI Codex**、**GitHub Copilot**、**Google Gemini**，每个小人可以同时跑不同的 AI。
 
-**[下载 macOS 版](https://lilagents.xyz)** · [官网](https://lilagents.xyz)
+**[下载 macOS 版](https://github.com/Esther-Zhu023/lil-agents/releases/latest)** · [官网](https://lilagents.xyz)
 
 ## 功能
 
