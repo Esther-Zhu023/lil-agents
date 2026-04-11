@@ -10,6 +10,10 @@ Supports **Claude Code**, **OpenClaw**, **Hermes**, **OpenAI Codex**, **GitHub C
 
 **[Download for macOS](https://lilagents.xyz)** · [Website](https://lilagents.xyz)
 
+---
+
+🇨🇳 [中文版说明书 / Chinese README](README.zh-CN.md)
+
 ## features
 
 - Animated characters rendered from transparent HEVC video
