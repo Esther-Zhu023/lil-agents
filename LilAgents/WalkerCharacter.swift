@@ -824,23 +824,18 @@ class WalkerCharacter {
 
     static var soundsEnabled = true
 
-    private static let completionSounds: [(name: String, ext: String)] = [
-        ("ping-aa", "mp3"), ("ping-bb", "mp3"), ("ping-cc", "mp3"),
-        ("ping-dd", "mp3"), ("ping-ee", "mp3"), ("ping-ff", "mp3"),
-        ("ping-gg", "mp3"), ("ping-hh", "mp3"), ("ping-jj", "m4a")
+    private static let characterSoundMap: [String: (name: String, ext: String)] = [
+        "Bruce": ("ping-aa", "mp3"),
+        "Jazz": ("ping-bb", "mp3"),
+        "Nova": ("ping-cc", "mp3"),
+        "Zoey": ("ping-dd", "mp3")
     ]
-    private static var lastSoundIndex: Int = -1
 
     func playCompletionSound() {
         guard Self.soundsEnabled else { return }
-        var idx: Int
-        repeat {
-            idx = Int.random(in: 0..<Self.completionSounds.count)
-        } while idx == Self.lastSoundIndex && Self.completionSounds.count > 1
-        Self.lastSoundIndex = idx
+        guard let soundInfo = Self.characterSoundMap[self.name] else { return }
 
-        let s = Self.completionSounds[idx]
-        if let url = Bundle.main.url(forResource: s.name, withExtension: s.ext, subdirectory: "Sounds"),
+        if let url = Bundle.main.url(forResource: soundInfo.name, withExtension: soundInfo.ext, subdirectory: "Sounds"),
            let sound = NSSound(contentsOf: url, byReference: true) {
             sound.play()
         }
