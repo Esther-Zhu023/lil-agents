@@ -39,8 +39,8 @@
 |------|---------|------|
 | Bruce | Hermes | 绿色 |
 | Jazz | OpenClaw | 橙色 |
-| Nova | Claude Code | 蓝色 |
-| Zoey | Hermes | 青绿色 |
+| Nova | Claude Code | 蓝色-Bruce的灵魂出体 |
+| Zoey | Hermes | 青绿色-Jazz的灵魂出体 |
 
 所有角色共享同一套走路动画，通过颜色滤镜区分。
 
@@ -63,7 +63,6 @@ open lil-agents.xcodeproj
 # 按 Cmd+R 运行
 ```
 
-> 注意：视频文件（.mov）因体积过大未提交到 git。如需完整动画，可从 [Release v1.3.0](https://github.com/Esther-Zhu023/lil-agents/releases/tag/v1.3.0) 下载 nova-final.mov 和 zoey-final.mov，放入 `Contents/Resources/` 目录。
 
 ## 隐私说明
 
