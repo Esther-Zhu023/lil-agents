@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Lil Agents</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: transparent;
+      overflow: hidden;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    }
+    #overlay {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+    }
+    #overlay-canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: transparent;
+    }
+    /* Character labels */
+    .char-label {
+      position: absolute;
+      top: 20px;
+      transform: translateX(-50%);
+      color: rgba(255,255,255,0.85);
+      font-size: 11px;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 10px;
+      pointer-events: none;
+      text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+      white-space: nowrap;
+    }
+    /* Thinking bubble */
+    .thinking-bubble {
+      position: absolute;
+      top: 50px;
+      transform: translateX(-50%);
+      background: rgba(255,255,255,0.95);
+      color: #333;
+      font-size: 11px;
+      padding: 4px 10px;
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+      pointer-events: none;
+      white-space: nowrap;
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+    .thinking-bubble.visible {
+      opacity: 1;
+    }
+  </style>
+</head>
+<body>
+  <div id="overlay">
+    <canvas id="overlay-canvas"></canvas>
+    <!-- Character labels injected by JS -->
+  </div>
+
+  <script>
+    const CHARACTERS = [
+      { id: 0, name: 'Bruce', aiProvider: 'hermes',   color: '#66b88c', position: 0.15, providerColor: '#C19C5F' },
+      { id: 1, name: 'Jazz',  aiProvider: 'openclaw', color: '#ff6600', position: 0.38, providerColor: '#C19C5F' },
+      { id: 2, name: 'Nova',  aiProvider: 'claude',   color: '#3366cc', position: 0.62, providerColor: '#7952CC' },
+      { id: 3, name: 'Zoey',  aiProvider: 'hermes',   color: '#00cccc', position: 0.85, providerColor: '#C19C5F' },
+    ];
+
+    const AI_COLORS = {
+      claude:   '#7952CC',
+      hermes:   '#C19C5F',
+      openclaw: '#10A37F',
+      codex:    '#0081CC',
+      copilot:  '#7C3AED',
+      gemini:   '#DB6821',
+      opencode: '#0081CC',
+    };
+
+    const WALK_CYCLE_FRAMES = [
+      { bodyOffsetY: 0,  legOffsetY: -3, armOffsetY: 3 },
+      { bodyOffsetY: -1, legOffsetY: 0,  armOffsetY: 0 },
+      { bodyOffsetY: 0,  legOffsetY: -3, armOffsetY: 3 },
+      { bodyOffsetY: -1, legOffsetY: 0,  armOffsetY: 0 },
+    ];
+
+    const canvas = document.getElementById('overlay-canvas');
+    const ctx = canvas.getContext('2d');
+    let lastTime = 0;
+    let charStates = CHARACTERS.map(c => ({
+      ...c,
+      x: c.position,
+      direction: Math.random() > 0.5 ? 1 : -1,
+      speed: 0.012 + Math.random() * 0.008,
+      frame: 0,
+      frameTimer: 0,
+      walking: true,
+      pauseTimer: 0,
+      thinking: false,
+      thinkingText: '',
+      thinkingTimer: 0,
+    }));
+
+    const THINKING_PHRASES = [
+      'thinking…', 'hmm…', 'processing…', 'typing…', 'analyzing…',
+      'searching…', 'calculating…', 'considering…'
+    ];
+
+    function resize() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    }
+    resize();
+    window.addEventListener('resize', resize);
+
+    // Create character labels
+    const labels = {};
+    const bubbles = {};
+    for (const c of CHARACTERS) {
+      const label = document.createElement('div');
+      label.className = 'char-label';
+      label.id = `label-${c.id}`;
+      label.style.background = c.color;
+      label.style.left = `${c.position * 100}%`;
+      label.textContent = c.name;
+      document.getElementById('overlay').appendChild(label);
+      labels[c.id] = label;
+
+      const bubble = document.createElement('div');
+      bubble.className = 'thinking-bubble';
+      bubble.id = `bubble-${c.id}`;
+      bubble.style.left = `${c.position * 100}%`;
+      document.getElementById('overlay').appendChild(bubble);
+      bubbles[c.id] = bubble;
+    }
+
+    function darkenColor(hex, pct) {
+      const num = parseInt(hex.slice(1), 16);
+      const amt = Math.round(2.55 * pct);
+      const R = Math.max((num >> 16) - amt, 0);
+      const G = Math.max(((num >> 8) & 0xFF) - amt, 0);
+      const B = Math.max((num & 0xFF) - amt, 0);
+      return `#${(1 << 24 | R << 16 | G << 8 | B).toString(16).slice(1)}`;
+    }
+
+    function drawCharacter(state, frame) {
+      const x = state.x * canvas.width;
+      const y = canvas.height - 90;
+      const size = 60;
+
+      ctx.save();
+      if (state.direction === -1) {
+        ctx.translate(x + size / 2, 0);
+        ctx.scale(-1, 1);
+        ctx.translate(-(x + size / 2), 0);
+      }
+
+      // Shadow
+      ctx.fillStyle = 'rgba(0,0,0,0.15)';
+      ctx.beginPath();
+      ctx.ellipse(x + size / 2, y + size + 2, size / 2 - 10, 5, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Legs
+      const wf = WALK_CYCLE_FRAMES[frame];
+      ctx.fillStyle = darkenColor(state.color, 25);
+      ctx.fillRect(x + 16, y + size - 22 + wf.legOffsetY, 10, 22 - wf.legOffsetY);
+      ctx.fillRect(x + 34, y + size - 22 + wf.legOffsetY, 10, 22 - wf.legOffsetY);
+
+      // Body
+      ctx.fillStyle = state.color;
+      ctx.beginPath();
+      ctx.roundRect(x + 10, y + 14 + wf.bodyOffsetY, 40, 30, 6);
+      ctx.fill();
+
+      // Arms
+      ctx.fillStyle = darkenColor(state.color, 10);
+      ctx.beginPath();
+      ctx.roundRect(x + 2, y + 18 + wf.armOffsetY, 10, 22, 4);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.roundRect(x + 48, y + 18 - wf.armOffsetY, 10, 22, 4);
+      ctx.fill();
+
+      // Head
+      ctx.fillStyle = state.color;
+      ctx.beginPath();
+      ctx.roundRect(x + 14, y + 2 + wf.bodyOffsetY, 32, 22, 6);
+      ctx.fill();
+
+      // Eyes (no pupils - faceless like original)
+      ctx.fillStyle = 'rgba(255,255,255,0.9)';
+      ctx.beginPath();
+      ctx.ellipse(x + 23, y + 12 + wf.bodyOffsetY, 5, 5, 0, 0, Math.PI * 2);
+      ctx.ellipse(x + 35, y + 12 + wf.bodyOffsetY, 5, 5, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.restore();
+
+      // AI provider dot
+      const dotColor = AI_COLORS[state.aiProvider] || '#888';
+      ctx.fillStyle = dotColor;
+      ctx.beginPath();
+      ctx.arc(x + size / 2, y - 6, 6, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(255,255,255,0.8)';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+    }
+
+    function updateCharacter(state, dt) {
+      if (!state.walking) {
+        state.pauseTimer -= dt;
+        if (state.pauseTimer <= 0) {
+          state.walking = true;
+          state.direction = Math.random() > 0.5 ? 1 : -1;
+        }
+        return;
+      }
+
+      // Walk animation
+      state.frameTimer += dt;
+      if (state.frameTimer > 180) {
+        state.frame = (state.frame + 1) % WALK_CYCLE_FRAMES.length;
+        state.frameTimer = 0;
+      }
+
+      // Move
+      state.x += state.direction * state.speed * (dt / 16);
+
+      // Random pauses
+      if (Math.random() < 0.001) {
+        state.walking = false;
+        state.pauseTimer = 1000 + Math.random() * 3000;
+      }
+
+      // Bounce at boundaries
+      if (state.x < 0.03) { state.x = 0.03; state.direction = 1; }
+      if (state.x > 0.85) { state.x = 0.85; state.direction = -1; }
+
+      // Update label position
+      labels[state.id].style.left = `${state.x * 100}%`;
+
+      // Thinking bubble
+      if (state.thinking) {
+        bubbles[state.id].classList.add('visible');
+        bubbles[state.id].textContent = state.thinkingText;
+        bubbles[state.id].style.left = `${state.x * 100}%`;
+        state.thinkingTimer -= dt;
+        if (state.thinkingTimer <= 0) {
+          state.thinking = false;
+          bubbles[state.id].classList.remove('visible');
+        }
+      }
+    }
+
+    function render(timestamp) {
+      const dt = timestamp - lastTime;
+      lastTime = timestamp;
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      for (const state of charStates) {
+        updateCharacter(state, dt);
+        drawCharacter(state, state.frame);
+      }
+
+      requestAnimationFrame(render);
+    }
+
+    // Click on canvas to open chat
+    canvas.addEventListener('click', (e) => {
+      const clickX = e.clientX / canvas.width;
+      const clickY = e.clientY;
+      const charHeight = canvas.height - 90;
+      const topZone = 40;
+
+      if (clickY > charHeight + 20) return; // click below characters
+
+      // Find closest character
+      let closest = null;
+      let closestDist = Infinity;
+      for (const state of charStates) {
+        const dist = Math.abs(state.x - clickX);
+        if (dist < closestDist && dist < 0.12) {
+          closest = state;
+          closestDist = dist;
+        }
+      }
+
+      if (closest) {
+        // Notify main process to open chat
+        if (window.electronAPI && window.electronAPI.openChat) {
+          window.electronAPI.openChat(closest.id);
+        }
+      }
+    });
+
+    // IPC from main process
+    if (window.electronAPI) {
+      window.electronAPI.onSetCharacterAI = (data) => {
+        const state = charStates.find(s => s.id === data.characterId);
+        if (state) {
+          state.aiProvider = data.provider;
+          labels[state.id].textContent = `${data.characterName}`;
+          labels[state.id].style.background = data.color;
+        }
+      };
+
+      window.electronAPI.onSetThinking = (data) => {
+        const state = charStates.find(s => s.id === data.characterId);
+        if (state) {
+          state.thinking = true;
+          state.thinkingText = THINKING_PHRASES[Math.floor(Math.random() * THINKING_PHRASES.length)];
+          state.thinkingTimer = 5000;
+          bubbles[state.id].classList.add('visible');
+          bubbles[state.id].textContent = state.thinkingText;
+          bubbles[state.id].style.left = `${state.x * 100}%`;
+        }
+      };
+    }
+
+    // Start
+    requestAnimationFrame(render);
+  </script>
+</body>
+</html>

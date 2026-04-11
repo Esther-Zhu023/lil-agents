@@ -1,0 +1,47 @@
+{
+  "name": "lil-agents-electron",
+  "version": "1.0.0",
+  "description": "Lil Agents Electron Application",
+  "main": "main.js",
+  "scripts": {
+    "build": "tsc && electron-builder --dir",
+    "dist": "tsc && electron-builder",
+    "start": "npm run build && electron .",
+    "dev": "tsc && electron ."
+  },
+  "build": {
+    "appId": "com.lilagents.electron",
+    "productName": "lil agents",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "renderer/**/*",
+      "assets/**/*",
+      "package.json"
+    ],
+    "mac": {
+      "category": "public.app-category.developer-tools",
+      "target": "dir"
+    },
+    "win": {
+      "target": "portable"
+    },
+    "linux": {
+      "target": "dir"
+    }
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "electron-log": "^5.3.5"
+  },
+  "devDependencies": {
+    "electron": "^41.2.0",
+    "electron-builder": "^26.0.0",
+    "typescript": "^5.8.3"
+  }
+}

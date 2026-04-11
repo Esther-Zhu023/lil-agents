@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Chat</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #1e1e2e;
+      color: #cdd6f4;
+      font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+      font-size: 13px;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    #header {
+      background: #181825;
+      padding: 10px 14px;
+      border-bottom: 1px solid #313244;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-shrink: 0;
+    }
+    #char-info { display: flex; align-items: center; gap: 10px; }
+    #char-avatar {
+      width: 28px; height: 28px;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 14px;
+    }
+    #char-name { font-weight: 700; font-size: 14px; }
+    #ai-badge {
+      font-size: 10px;
+      padding: 2px 7px;
+      border-radius: 10px;
+      background: #313244;
+      color: #a6adc8;
+      margin-left: 6px;
+    }
+    #status-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: #6c7086;
+    }
+    #status-dot.ready { background: #a6e3a1; }
+    #status-dot.busy { background: #f9e2af; animation: pulse 1s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+    #messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .msg {
+      max-width: 85%;
+      padding: 7px 12px;
+      border-radius: 12px;
+      line-height: 1.6;
+      white-space: pre-wrap;
+      word-break: break-word;
+      font-size: 13px;
+    }
+    .msg.user {
+      align-self: flex-end;
+      background: #89b4fa;
+      color: #1e1e2e;
+      border-bottom-right-radius: 4px;
+    }
+    .msg.assistant {
+      align-self: flex-start;
+      background: #313244;
+      border-bottom-left-radius: 4px;
+    }
+    .msg.error {
+      align-self: flex-start;
+      background: #f38ba8;
+      color: #1e1e2e;
+    }
+    .msg.thinking {
+      align-self: flex-start;
+      background: #313244;
+      font-style: italic;
+      opacity: 0.7;
+    }
+    .typing-indicator {
+      display: inline-flex; gap: 4px; padding: 4px 0;
+    }
+    .typing-indicator span {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: #6c7086;
+      animation: bounce 1.2s infinite;
+    }
+    .typing-indicator span:nth-child(2) { animation-delay: 0.2s; }
+    .typing-indicator span:nth-child(3) { animation-delay: 0.4s; }
+    @keyframes bounce { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-5px)} }
+
+    #input-area {
+      background: #181825;
+      border-top: 1px solid #313244;
+      padding: 10px 12px;
+      display: flex;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+    #input {
+      flex: 1;
+      background: #313244;
+      border: 1px solid #45475a;
+      color: #cdd6f4;
+      padding: 9px 13px;
+      border-radius: 8px;
+      font-family: inherit;
+      font-size: 13px;
+      outline: none;
+      resize: none;
+    }
+    #input:focus { border-color: #89b4fa; }
+    #send {
+      background: #89b4fa;
+      border: none;
+      color: #1e1e2e;
+      padding: 9px 18px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 13px;
+      align-self: flex-end;
+    }
+    #send:hover { background: #b4befe; }
+    #send:disabled { background: #45475a; color: #6c7086; cursor: not-allowed; }
+  </style>
+</head>
+<body>
+
+<div id="header">
+  <div id="char-info">
+    <div id="char-avatar"></div>
+    <div>
+      <span id="char-name">Loading…</span>
+      <span id="ai-badge"></span>
+    </div>
+  </div>
+  <div id="status-dot"></div>
+</div>
+
+<div id="messages"></div>
+
+<div id="input-area">
+  <textarea id="input" placeholder="Ask..." rows="1"></textarea>
+  <button id="send">Send</button>
+</div>
+
+<script>
+  let currentChar = null;
+  let streaming = false;
+  let currentAssistantDiv = null;
+
+  const messages = document.getElementById('messages');
+  const inputEl = document.getElementById('input');
+  const sendBtn = document.getElementById('send');
+  const charNameEl = document.getElementById('char-name');
+  const aiBadgeEl = document.getElementById('ai-badge');
+  const avatarEl = document.getElementById('char-avatar');
+  const statusDot = document.getElementById('status-dot');
+
+  const AI_COLORS = {
+    hermes:   '#C19C5F',
+    openclaw: '#10A37F',
+    claude:   '#7952CC',
+    codex:    '#0081CC',
+    copilot:  '#7C3AED',
+    gemini:   '#DB6821',
+    opencode: '#0081CC',
+  };
+
+  function esc(s) {
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  function addMsg(text, cls) {
+    const div = document.createElement('div');
+    div.className = 'msg ' + cls;
+    div.textContent = text;
+    messages.appendChild(div);
+    messages.scrollTop = messages.scrollHeight;
+    return div;
+  }
+
+  function startThinking() {
+    streaming = true;
+    sendBtn.disabled = true;
+    statusDot.className = 'busy';
+    const div = document.createElement('div');
+    div.className = 'msg thinking';
+    div.innerHTML = '<span class="typing-indicator"><span></span><span></span><span></span></span>';
+    messages.appendChild(div);
+    currentAssistantDiv = div;
+    messages.scrollTop = messages.scrollHeight;
+  }
+
+  function endThinking() {
+    streaming = false;
+    sendBtn.disabled = false;
+    statusDot.className = 'ready';
+    if (currentAssistantDiv) {
+      const indicator = currentAssistantDiv.querySelector('.typing-indicator');
+      if (indicator) indicator.remove();
+      currentAssistantDiv.classList.remove('thinking');
+      currentAssistantDiv.classList.add('assistant');
+      currentAssistantDiv = null;
+    }
+    messages.scrollTop = messages.scrollHeight;
+  }
+
+  function appendText(text) {
+    if (currentAssistantDiv) {
+      // append to existing assistant div
+      const existing = currentAssistantDiv.firstChild;
+      if (existing && existing.nodeType === Node.TEXT_NODE) {
+        existing.textContent += text;
+      } else {
+        currentAssistantDiv.insertBefore(document.createTextNode(text), currentAssistantDiv.firstChild);
+      }
+    } else {
+      const div = document.createElement('div');
+      div.className = 'msg assistant';
+      div.textContent = text;
+      messages.appendChild(div);
+      currentAssistantDiv = div;
+    }
+    messages.scrollTop = messages.scrollHeight;
+  }
+
+  // Auto-resize textarea
+  inputEl.addEventListener('input', () => {
+    inputEl.style.height = 'auto';
+    inputEl.style.height = Math.min(inputEl.scrollHeight, 120) + 'px';
+  });
+
+  inputEl.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendBtn.click();
+    }
+  });
+
+  sendBtn.addEventListener('click', () => {
+    const text = inputEl.value.trim();
+    if (!text || streaming || !currentChar) return;
+    inputEl.value = '';
+    inputEl.style.height = 'auto';
+    addMsg(text, 'user');
+    startThinking();
+    window.electronAPI.sendMessage(currentChar.id, text);
+  });
+
+  // IPC from main process
+  window.electronAPI.onInitCharacter((data) => {
+    currentChar = data;
+    charNameEl.textContent = data.name;
+    aiBadgeEl.textContent = (data.aiProvider || '').toUpperCase();
+    const col = AI_COLORS[data.aiProvider] || '#6c7086';
+    avatarEl.style.background = data.color;
+    avatarEl.textContent = data.name[0];
+    aiBadgeEl.style.background = col + '33';
+    aiBadgeEl.style.color = col;
+    document.title = `${data.name} — ${data.aiProvider}`;
+    statusDot.className = 'ready';
+  });
+
+  window.electronAPI.onAppendOutput((data) => {
+    if (data.role === 'error') {
+      endThinking();
+      addMsg('Error: ' + data.text, 'error');
+    } else if (data.role === 'user') {
+      // user messages are added locally
+    } else {
+      // assistant - stream
+      if (!streaming) startThinking();
+      appendText(data.text);
+    }
+  });
+
+  window.electronAPI.onStreamEnd(() => {
+    endThinking();
+  });
+</script>
+</body>
+</html>
