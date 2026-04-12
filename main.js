@@ -275,16 +275,16 @@ function createOverlayWindow() {
   const { width, height } = screen.getPrimaryDisplay().workAreaSize;
 
   mainWindow = new BrowserWindow({
-    width,
-    height,
-    transparent: true,
-    frame: false,
+    width: 480,
+    height: 600,
+    transparent: false,
+    frame: true,
     alwaysOnTop: true,
-    skipTaskbar: true,
-    resizable: false,
-    hasShadow: false,
-    y: 0,
-    x: 0,
+    skipTaskbar: false,
+    resizable: true,
+    hasShadow: true,
+    y: 100,
+    x: 100,
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
@@ -480,6 +480,13 @@ app.whenReady().then(() => {
   preloadSounds();
   setupIPC();
   createOverlayWindow();
+
+  // Forward renderer console.log to electron-log (mainWindow now exists)
+  mainWindow.webContents.on('console-message', (event, level, message, line, sourceId) => {
+    if (level >= 0) {
+      console.log(`[${Date.now()}] [renderer] ${message}`);
+    }
+  });
 
   tray = new Tray(nativeImage.createEmpty());
   tray.setContextMenu(buildTrayMenu());

@@ -5,42 +5,65 @@
   <title>Lil Agents</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body {
+    html, body {
       background: transparent;
       overflow: hidden;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      user-select: none;
     }
     #overlay {
       position: relative;
       width: 100vw;
       height: 100vh;
     }
-    #overlay-canvas {
+    .character-wrapper {
       position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: transparent;
+      bottom: 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      pointer-events: auto;
+      cursor: pointer;
+      /* No CSS transition — JS animation loop handles all movement */
     }
-    /* Character labels */
-    .char-label {
+    .char-video {
+      width: 100px;
+      height: 180px;
+      object-fit: contain;
+      background: transparent;
+      image-rendering: -webkit-optimize-contrast;
+    }
+    /* AI provider dot */
+    .ai-dot {
       position: absolute;
-      top: 20px;
+      bottom: 175px;
+      left: 50%;
       transform: translateX(-50%);
-      color: rgba(255,255,255,0.85);
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      border: 2px solid rgba(255,255,255,0.9);
+      z-index: 2;
+    }
+    /* Character label */
+    .char-label {
+      margin-top: 4px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
       font-size: 11px;
-      font-weight: 600;
+      font-weight: 700;
+      color: rgba(255,255,255,0.9);
+      text-shadow: 0 1px 4px rgba(0,0,0,0.6), 0 0 8px rgba(0,0,0,0.4);
+      letter-spacing: 0.5px;
       padding: 2px 8px;
-      border-radius: 10px;
-      pointer-events: none;
-      text-shadow: 0 1px 3px rgba(0,0,0,0.5);
-      white-space: nowrap;
+      border-radius: 8px;
     }
     /* Thinking bubble */
     .thinking-bubble {
       position: absolute;
-      top: 50px;
+      bottom: 200px;
+      left: 50%;
       transform: translateX(-50%);
       background: rgba(255,255,255,0.95);
       color: #333;
@@ -48,285 +71,273 @@
       padding: 4px 10px;
       border-radius: 12px;
       box-shadow: 0 2px 8px rgba(0,0,0,0.15);
-      pointer-events: none;
       white-space: nowrap;
       opacity: 0;
       transition: opacity 0.3s;
+      font-family: -apple-system, BlinkMacSystemFont, sans-serif;
     }
-    .thinking-bubble.visible {
-      opacity: 1;
-    }
+    .thinking-bubble.visible { opacity: 1; }
   </style>
 </head>
 <body>
   <div id="overlay">
-    <canvas id="overlay-canvas"></canvas>
-    <!-- Character labels injected by JS -->
+    <!-- Characters injected by JS -->
   </div>
 
   <script>
     const CHARACTERS = [
-      { id: 0, name: 'Bruce', aiProvider: 'hermes',   color: '#66b88c', position: 0.15, providerColor: '#C19C5F' },
-      { id: 1, name: 'Jazz',  aiProvider: 'openclaw', color: '#ff6600', position: 0.38, providerColor: '#C19C5F' },
-      { id: 2, name: 'Nova',  aiProvider: 'claude',   color: '#3366cc', position: 0.62, providerColor: '#7952CC' },
-      { id: 3, name: 'Zoey',  aiProvider: 'hermes',   color: '#00cccc', position: 0.85, providerColor: '#C19C5F' },
+      { id: 0, name: 'Bruce', aiProvider: 'hermes',   color: '#66b88c', position: 0.15 },
+      { id: 1, name: 'Jazz',  aiProvider: 'openclaw', color: '#ff6600', position: 0.38 },
+      { id: 2, name: 'Nova',  aiProvider: 'claude',  color: '#3366cc', position: 0.62 },
+      { id: 3, name: 'Zoey',  aiProvider: 'hermes',  color: '#00cccc', position: 0.85 },
     ];
 
     const AI_COLORS = {
-      claude:   '#7952CC',
       hermes:   '#C19C5F',
       openclaw: '#10A37F',
+      claude:   '#7952CC',
       codex:    '#0081CC',
       copilot:  '#7C3AED',
       gemini:   '#DB6821',
       opencode: '#0081CC',
     };
 
-    const WALK_CYCLE_FRAMES = [
-      { bodyOffsetY: 0,  legOffsetY: -3, armOffsetY: 3 },
-      { bodyOffsetY: -1, legOffsetY: 0,  armOffsetY: 0 },
-      { bodyOffsetY: 0,  legOffsetY: -3, armOffsetY: 3 },
-      { bodyOffsetY: -1, legOffsetY: 0,  armOffsetY: 0 },
-    ];
+    // Walker state per character — mirrors macOS Swift logic
+    const WALK_DURATION = 10.04; // seconds per video loop
 
-    const canvas = document.getElementById('overlay-canvas');
-    const ctx = canvas.getContext('2d');
-    let lastTime = 0;
-    let charStates = CHARACTERS.map(c => ({
-      ...c,
-      x: c.position,
-      direction: Math.random() > 0.5 ? 1 : -1,
-      speed: 0.012 + Math.random() * 0.008,
-      frame: 0,
-      frameTimer: 0,
-      walking: true,
-      pauseTimer: 0,
-      thinking: false,
-      thinkingText: '',
-      thinkingTimer: 0,
-    }));
+    const CHAR_ANIM = [
+      // Bruce
+      { accelStart: 3.0, fullSpeedStart: 3.75, decelStart: 8.0,  walkStop: 8.5,  walkAmountRange: [0.4, 0.65] },
+      // Jazz
+      { accelStart: 3.9, fullSpeedStart: 4.5,  decelStart: 8.0,  walkStop: 8.75, walkAmountRange: [0.35, 0.6] },
+      // Nova
+      { accelStart: 3.5, fullSpeedStart: 4.2,  decelStart: 8.0,  walkStop: 8.6,  walkAmountRange: [0.38, 0.58] },
+      // Zoey
+      { accelStart: 3.3, fullSpeedStart: 4.0,  decelStart: 8.0,  walkStop: 8.7,  walkAmountRange: [0.36, 0.62] },
+    ];
 
     const THINKING_PHRASES = [
       'thinking…', 'hmm…', 'processing…', 'typing…', 'analyzing…',
       'searching…', 'calculating…', 'considering…'
     ];
 
-    function resize() {
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
-    }
-    resize();
-    window.addEventListener('resize', resize);
+    // Per-char audio buffers
+    let audioBuffers = {};
 
-    // Create character labels
-    const labels = {};
+    // Characters state
+    const states = CHARACTERS.map((c, i) => ({
+      ...c,
+      x: c.position,
+      goingRight: Math.random() > 0.5,
+      walking: false,
+      walkStartX: c.position,
+      walkEndX: 0,
+      walkStartTime: 0,
+      anim: CHAR_ANIM[i],
+      thinking: false,
+      thinkingText: '',
+      thinkingTimer: 0,
+      pauseEnd: 0,
+    }));
+
+    // Build DOM
+    const overlay = document.getElementById('overlay');
     const bubbles = {};
-    for (const c of CHARACTERS) {
+
+    for (const s of states) {
+      const wrapper = document.createElement('div');
+      wrapper.className = 'character-wrapper';
+      wrapper.id = `char-${s.id}`;
+      wrapper.style.left = `${s.x * 100}%`;
+
+      const dot = document.createElement('div');
+      dot.className = 'ai-dot';
+      dot.style.background = AI_COLORS[s.aiProvider] || '#888';
+
+      const video = document.createElement('video');
+      video.className = 'char-video';
+      video.id = `video-${s.id}`;
+      video.src = `../assets/videos/walk-${s.name.toLowerCase()}.webm`;
+      video.loop = false;
+      video.muted = true;
+      video.playsInline = true;
+      video.preload = 'auto';
+
       const label = document.createElement('div');
       label.className = 'char-label';
-      label.id = `label-${c.id}`;
-      label.style.background = c.color;
-      label.style.left = `${c.position * 100}%`;
-      label.textContent = c.name;
-      document.getElementById('overlay').appendChild(label);
-      labels[c.id] = label;
+      label.id = `label-${s.id}`;
+      label.style.background = s.color;
+      label.textContent = s.name;
 
       const bubble = document.createElement('div');
       bubble.className = 'thinking-bubble';
-      bubble.id = `bubble-${c.id}`;
-      bubble.style.left = `${c.position * 100}%`;
-      document.getElementById('overlay').appendChild(bubble);
-      bubbles[c.id] = bubble;
+      bubble.id = `bubble-${s.id}`;
+      bubbles[s.id] = bubble;
+
+      wrapper.appendChild(dot);
+      wrapper.appendChild(video);
+      wrapper.appendChild(bubble);
+      wrapper.appendChild(label);
+      overlay.appendChild(wrapper);
+
+      // Click to open chat
+      wrapper.addEventListener('click', () => {
+        if (window.electronAPI && window.electronAPI.openChat) {
+          window.electronAPI.openChat(s.id);
+        }
+      });
+
+      // Start video when ready
+      video.addEventListener('loadeddata', () => {
+        video.play().catch(() => {});
+      });
+
+      video.addEventListener('ended', () => {
+        if (s.walking) {
+          video.currentTime = 0;
+          video.play().catch(() => {});
+        }
+      });
+
+      video.addEventListener('timeupdate', () => {
+        if (!s.walking && !video.paused) {
+          video.pause();
+        }
+      });
     }
 
-    function darkenColor(hex, pct) {
-      const num = parseInt(hex.slice(1), 16);
-      const amt = Math.round(2.55 * pct);
-      const R = Math.max((num >> 16) - amt, 0);
-      const G = Math.max(((num >> 8) & 0xFF) - amt, 0);
-      const B = Math.max((num & 0xFF) - amt, 0);
-      return `#${(1 << 24 | R << 16 | G << 8 | B).toString(16).slice(1)}`;
+    // Speed curve — same as macOS Swift
+    function getSpeedFraction(t, anim) {
+      // t is time since walk started in seconds
+      if (t < anim.accelStart) return 0;
+      if (t < anim.fullSpeedStart) {
+        // ease in
+        const p = (t - anim.accelStart) / (anim.fullSpeedStart - anim.accelStart);
+        return p * p; // quadratic ease in
+      }
+      if (t < anim.decelStart) return 1.0;
+      if (t < anim.walkStop) {
+        // ease out
+        const p = (anim.walkStop - t) / (anim.walkStop - anim.decelStart);
+        return 1.0 - (p * p);
+      }
+      return 0;
     }
 
-    function drawCharacter(state, frame) {
-      const x = state.x * canvas.width;
-      const y = canvas.height - 90;
-      const size = 60;
+    // Walk — pick destination, walk there, pause, repeat
+    function startWalk(s) {
+      s.walking = true;
+      s.walkStartX = s.x;
+      const walkDist = s.anim.walkAmountRange[0] +
+        Math.random() * (s.anim.walkAmountRange[1] - s.anim.walkAmountRange[0]);
 
-      ctx.save();
-      if (state.direction === -1) {
-        ctx.translate(x + size / 2, 0);
-        ctx.scale(-1, 1);
-        ctx.translate(-(x + size / 2), 0);
+      if (s.goingRight) {
+        s.walkEndX = Math.min(s.walkStartX + walkDist, 0.85);
+      } else {
+        s.walkEndX = Math.max(s.walkStartX - walkDist, 0.08);
       }
 
-      // Shadow
-      ctx.fillStyle = 'rgba(0,0,0,0.15)';
-      ctx.beginPath();
-      ctx.ellipse(x + size / 2, y + size + 2, size / 2 - 10, 5, 0, 0, Math.PI * 2);
-      ctx.fill();
+      s.goingRight = !s.goingRight;
+      s.walkStartTime = performance.now() / 1000;
 
-      // Legs
-      const wf = WALK_CYCLE_FRAMES[frame];
-      ctx.fillStyle = darkenColor(state.color, 25);
-      ctx.fillRect(x + 16, y + size - 22 + wf.legOffsetY, 10, 22 - wf.legOffsetY);
-      ctx.fillRect(x + 34, y + size - 22 + wf.legOffsetY, 10, 22 - wf.legOffsetY);
-
-      // Body
-      ctx.fillStyle = state.color;
-      ctx.beginPath();
-      ctx.roundRect(x + 10, y + 14 + wf.bodyOffsetY, 40, 30, 6);
-      ctx.fill();
-
-      // Arms
-      ctx.fillStyle = darkenColor(state.color, 10);
-      ctx.beginPath();
-      ctx.roundRect(x + 2, y + 18 + wf.armOffsetY, 10, 22, 4);
-      ctx.fill();
-      ctx.beginPath();
-      ctx.roundRect(x + 48, y + 18 - wf.armOffsetY, 10, 22, 4);
-      ctx.fill();
-
-      // Head
-      ctx.fillStyle = state.color;
-      ctx.beginPath();
-      ctx.roundRect(x + 14, y + 2 + wf.bodyOffsetY, 32, 22, 6);
-      ctx.fill();
-
-      // Eyes (no pupils - faceless like original)
-      ctx.fillStyle = 'rgba(255,255,255,0.9)';
-      ctx.beginPath();
-      ctx.ellipse(x + 23, y + 12 + wf.bodyOffsetY, 5, 5, 0, 0, Math.PI * 2);
-      ctx.ellipse(x + 35, y + 12 + wf.bodyOffsetY, 5, 5, 0, 0, Math.PI * 2);
-      ctx.fill();
-
-      ctx.restore();
-
-      // AI provider dot
-      const dotColor = AI_COLORS[state.aiProvider] || '#888';
-      ctx.fillStyle = dotColor;
-      ctx.beginPath();
-      ctx.arc(x + size / 2, y - 6, 6, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.strokeStyle = 'rgba(255,255,255,0.8)';
-      ctx.lineWidth = 1.5;
-      ctx.stroke();
+      const video = document.getElementById(`video-${s.id}`);
+      video.currentTime = 0;
+      video.play().catch(() => {});
     }
 
-    function updateCharacter(state, dt) {
-      if (!state.walking) {
-        state.pauseTimer -= dt;
-        if (state.pauseTimer <= 0) {
-          state.walking = true;
-          state.direction = Math.random() > 0.5 ? 1 : -1;
+    function updateCharacter(s, now) {
+      const wrapper = document.getElementById(`char-${s.id}`);
+
+      if (!s.walking) {
+        // Random pause — then start new walk
+        if (now > s.pauseEnd) {
+          startWalk(s);
         }
         return;
       }
 
-      // Walk animation
-      state.frameTimer += dt;
-      if (state.frameTimer > 180) {
-        state.frame = (state.frame + 1) % WALK_CYCLE_FRAMES.length;
-        state.frameTimer = 0;
+      const elapsed = now - s.walkStartTime;
+
+      // Use elapsed modulo WALK_DURATION for frac (keeps t in valid range)
+      // But cap at walkStop so frac never regresses when video loops
+      const t = Math.min(elapsed % WALK_DURATION, s.anim.walkStop);
+      const frac = getSpeedFraction(t, s.anim);
+
+      const totalDist = s.walkEndX - s.walkStartX;
+      s.x = s.walkStartX + totalDist * frac;
+      s.x = Math.max(0.05, Math.min(0.88, s.x));
+
+      wrapper.style.left = `${s.x * 100}%`;
+
+      // End walk when elapsed exceeds walkStop
+      if (elapsed >= s.anim.walkStop) {
+        s.x = s.walkEndX;
+        wrapper.style.left = `${s.x * 100}%`;
+        s.walking = false;
+
+        // Random pause 2-6 seconds
+        s.pauseEnd = now + 2 + Math.random() * 4;
+
+        const video = document.getElementById(`video-${s.id}`);
+        video.pause();
       }
-
-      // Move
-      state.x += state.direction * state.speed * (dt / 16);
-
-      // Random pauses
-      if (Math.random() < 0.001) {
-        state.walking = false;
-        state.pauseTimer = 1000 + Math.random() * 3000;
-      }
-
-      // Bounce at boundaries
-      if (state.x < 0.03) { state.x = 0.03; state.direction = 1; }
-      if (state.x > 0.85) { state.x = 0.85; state.direction = -1; }
-
-      // Update label position
-      labels[state.id].style.left = `${state.x * 100}%`;
 
       // Thinking bubble
-      if (state.thinking) {
-        bubbles[state.id].classList.add('visible');
-        bubbles[state.id].textContent = state.thinkingText;
-        bubbles[state.id].style.left = `${state.x * 100}%`;
-        state.thinkingTimer -= dt;
-        if (state.thinkingTimer <= 0) {
-          state.thinking = false;
-          bubbles[state.id].classList.remove('visible');
+      if (s.thinking) {
+        bubbles[s.id].classList.add('visible');
+        bubbles[s.id].textContent = s.thinkingText;
+        s.thinkingTimer -= 16;
+        if (s.thinkingTimer <= 0) {
+          s.thinking = false;
+          bubbles[s.id].classList.remove('visible');
         }
       }
     }
 
-    function render(timestamp) {
-      const dt = timestamp - lastTime;
-      lastTime = timestamp;
+    // Main loop
+    let lastFrame = performance.now() / 1000;
+    function frame(nowMs) {
+      const now = nowMs / 1000;
+      const dt = now - lastFrame;
+      lastFrame = now;
 
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-      for (const state of charStates) {
-        updateCharacter(state, dt);
-        drawCharacter(state, state.frame);
+      for (const s of states) {
+        updateCharacter(s, now);
       }
 
-      requestAnimationFrame(render);
+      requestAnimationFrame(frame);
     }
+    requestAnimationFrame(frame);
 
-    // Click on canvas to open chat
-    canvas.addEventListener('click', (e) => {
-      const clickX = e.clientX / canvas.width;
-      const clickY = e.clientY;
-      const charHeight = canvas.height - 90;
-      const topZone = 40;
-
-      if (clickY > charHeight + 20) return; // click below characters
-
-      // Find closest character
-      let closest = null;
-      let closestDist = Infinity;
-      for (const state of charStates) {
-        const dist = Math.abs(state.x - clickX);
-        if (dist < closestDist && dist < 0.12) {
-          closest = state;
-          closestDist = dist;
-        }
-      }
-
-      if (closest) {
-        // Notify main process to open chat
-        if (window.electronAPI && window.electronAPI.openChat) {
-          window.electronAPI.openChat(closest.id);
-        }
-      }
-    });
+    // Initial random start delays
+    for (const s of states) {
+      s.pauseEnd = Math.random() * 3;
+    }
 
     // IPC from main process
     if (window.electronAPI) {
       window.electronAPI.onSetCharacterAI = (data) => {
-        const state = charStates.find(s => s.id === data.characterId);
-        if (state) {
-          state.aiProvider = data.provider;
-          labels[state.id].textContent = `${data.characterName}`;
-          labels[state.id].style.background = data.color;
-        }
+        const s = states.find(s => s.id === data.characterId);
+        if (!s) return;
+        s.aiProvider = data.provider;
+        const dot = document.querySelector(`#char-${s.id} .ai-dot`);
+        if (dot) dot.style.background = AI_COLORS[data.provider] || '#888';
       };
 
       window.electronAPI.onSetThinking = (data) => {
-        const state = charStates.find(s => s.id === data.characterId);
-        if (state) {
-          state.thinking = true;
-          state.thinkingText = THINKING_PHRASES[Math.floor(Math.random() * THINKING_PHRASES.length)];
-          state.thinkingTimer = 5000;
-          bubbles[state.id].classList.add('visible');
-          bubbles[state.id].textContent = state.thinkingText;
-          bubbles[state.id].style.left = `${state.x * 100}%`;
-        }
+        const s = states.find(s => s.id === data.characterId);
+        if (!s) return;
+        s.thinking = true;
+        s.thinkingText = THINKING_PHRASES[Math.floor(Math.random() * THINKING_PHRASES.length)];
+        s.thinkingTimer = 5000;
+        bubbles[s.id].textContent = s.thinkingText;
+        bubbles[s.id].classList.add('visible');
+      };
+
+      window.electronAPI.onSetSoundsEnabled = (enabled) => {
+        // handled by main process
       };
     }
-
-    // Start
-    requestAnimationFrame(render);
   </script>
 </body>
 </html>

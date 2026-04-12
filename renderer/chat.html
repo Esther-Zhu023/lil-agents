@@ -209,6 +209,7 @@
     sendBtn.disabled = false;
     statusDot.className = 'ready';
     if (currentAssistantDiv) {
+      // Remove thinking indicator if still present
       const indicator = currentAssistantDiv.querySelector('.typing-indicator');
       if (indicator) indicator.remove();
       currentAssistantDiv.classList.remove('thinking');
@@ -220,13 +221,11 @@
 
   function appendText(text) {
     if (currentAssistantDiv) {
-      // append to existing assistant div
-      const existing = currentAssistantDiv.firstChild;
-      if (existing && existing.nodeType === Node.TEXT_NODE) {
-        existing.textContent += text;
-      } else {
-        currentAssistantDiv.insertBefore(document.createTextNode(text), currentAssistantDiv.firstChild);
-      }
+      // Remove thinking indicator if still present
+      const indicator = currentAssistantDiv.querySelector('.typing-indicator');
+      if (indicator) indicator.remove();
+      // Append text to end of div
+      currentAssistantDiv.appendChild(document.createTextNode(text));
     } else {
       const div = document.createElement('div');
       div.className = 'msg assistant';
@@ -256,6 +255,14 @@
     inputEl.value = '';
     inputEl.style.height = 'auto';
     addMsg(text, 'user');
+    // Clear any leftover thinking state before AI starts responding
+    if (currentAssistantDiv) {
+      const indicator = currentAssistantDiv.querySelector('.typing-indicator');
+      if (indicator) indicator.remove();
+      currentAssistantDiv.classList.remove('thinking');
+      currentAssistantDiv.classList.add('assistant');
+      currentAssistantDiv = null;
+    }
     startThinking();
     window.electronAPI.sendMessage(currentChar.id, text);
   });
