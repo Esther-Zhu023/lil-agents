@@ -2,7 +2,7 @@
 
 Tiny AI companions that live on your macOS dock — built with Electron.
 
-**Alpha**, **Beta**, **Gamma**, **Delta** walk back and forth above your dock. Click one to open an AI terminal in a themed popover. They walk, they think, they vibe.
+**Bruce**, **Jazz**, **Nova**, **Zoey** walk back and forth above your dock. Click one to open an AI terminal in a themed popover. They walk, they think, they vibe.
 
 Supports **Claude Code**, **OpenAI Codex**, **GitHub Copilot**, **Google Gemini**, and **OpenClaw** CLIs — switch between them from the menubar.
 
@@ -78,7 +78,7 @@ This is an Electron port of the original [lil-agents](https://github.com/ryanste
 
 Characters are rendered from transparent WEBM video loops. The animation uses `video.currentTime` (not wall-clock elapsed time) to drive the walk cycle, avoiding wrap-around issues when `elapsed % WALK_DURATION` causes characters to teleport back to start.
 
-Each character has an AI provider indicator dot above them (claude, gpt4, gemini, llama, mistral, openclaw).
+Each character has an AI provider indicator dot above them (claude, openclaw, gemini, etc.).
 
 ### Session Management
 
