@@ -4,7 +4,7 @@ Tiny AI companions that live on your macOS dock — built with Electron.
 
 **Bruce**, **Jazz**, **Nova**, **Zoey** walk back and forth above your dock. Click one to open an AI terminal in a themed popover. They walk, they think, they vibe.
 
-Supports **Claude Code**, **OpenAI Codex**, **GitHub Copilot**, **Google Gemini**, and **OpenClaw** CLIs — switch between them from the menubar.
+Supports **Claude Code**, **OpenAI Codex**, **GitHub Copilot**, **Google Gemini**, **OpenClaw**, and **Hermes** CLIs — switch between them from the menubar.
 
 **[Download for macOS (arm64)](https://github.com/Esther-Zhu023/lil-agents/releases)** · **[Download for Windows](https://github.com/Esther-Zhu023/lil-agents/releases)**
 
@@ -31,6 +31,7 @@ Install at least one of the supported CLIs:
 - [GitHub Copilot](https://github.com/github/copilot-cli) — `brew install copilot-cli`
 - [Google Gemini CLI](https://github.com/google-gemini/gemini-cli) — `npm install -g @google/gemini-cli`
 - [OpenClaw](https://openclaw.dev) — Follow instructions at openclaw.dev
+- [Hermes](https://github.com/esther-zhu/hermes-agent) — `curl -sSL https://raw.githubusercontent.com/Esther-Zhu023/hermes-agent/main/install.sh | sh`
 
 ## System Requirements
 
