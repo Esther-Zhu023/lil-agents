@@ -1,4 +1,4 @@
-# lil-agents-electron
+# lil-agents
 
 Tiny AI companions that live on your macOS dock — built with Electron.
 
