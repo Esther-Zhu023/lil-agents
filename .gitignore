@@ -25,3 +25,6 @@ xcuserdata/
 *.dmg
 *.zip
 *.xcworkspace/xcshareddata/swiftpm/
+
+# Video files (too large for git)
+*.mov
