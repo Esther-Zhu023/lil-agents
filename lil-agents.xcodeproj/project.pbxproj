@@ -211,6 +211,7 @@ B639F44C28344F81A5FE1DE4 /* HermesSession.swift */ = {isa = PBXFileReference; la
 				A10000010000000000000036 /* OpenCodeSession.swift in Sources */,
 				A10000010000000000000037 /* DockVisibility.swift in Sources */,
 				A10000010000000000000038 /* OpenClawSession.swift in Sources */,
+				137A9867EA7B4257A450EC23 /* HermesSession.swift in Sources */,
 				A10000010000000000000023 /* TerminalView.swift in Sources */,
 				A10000010000000000000024 /* WalkerCharacter.swift in Sources */,
 				A10000010000000000000025 /* LilAgentsController.swift in Sources */,
