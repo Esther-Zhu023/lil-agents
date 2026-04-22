@@ -8,9 +8,22 @@ class KeyableWindow: NSWindow {
 class CharacterContentView: NSView {
     weak var character: WalkerCharacter?
 
+    // Cache hit-test result briefly to avoid expensive CGWindowListCreateImage on every event
+    private var lastHitTestResult: NSView? = nil
+    private var lastHitTestTime: CFTimeInterval = 0
+    private static let hitTestCacheInterval: CFTimeInterval = 0.05  // 50ms cache
+
     override func hitTest(_ point: NSPoint) -> NSView? {
         let localPoint = convert(point, from: superview)
         guard bounds.contains(localPoint) else { return nil }
+
+        let now = CACurrentMediaTime()
+        if now - lastHitTestTime < Self.hitTestCacheInterval {
+            if let cached = lastHitTestResult {
+                return cached
+            }
+        }
+        lastHitTestTime = now
 
         // AVPlayerLayer is GPU-rendered so layer.render(in:) won't capture video pixels.
         // Use CGWindowListCreateImage to sample actual on-screen alpha at click point.
@@ -41,8 +54,10 @@ class CharacterContentView: NSView {
             ) {
                 ctx.draw(image, in: CGRect(x: 0, y: 0, width: 1, height: 1))
                 if pixel[3] > 30 {
+                    lastHitTestResult = self
                     return self
                 }
+                lastHitTestResult = nil
                 return nil
             }
         }
@@ -51,7 +66,9 @@ class CharacterContentView: NSView {
         let insetX = bounds.width * 0.2
         let insetY = bounds.height * 0.15
         let hitRect = bounds.insetBy(dx: insetX, dy: insetY)
-        return hitRect.contains(localPoint) ? self : nil
+        let result = hitRect.contains(localPoint) ? self : nil
+        lastHitTestResult = result
+        return result
     }
 
     override func mouseDown(with event: NSEvent) {

@@ -685,6 +685,8 @@ class WalkerCharacter {
     }
 
     private func hideBubble() {
+        lastBubbleText = ""
+        lastBubbleIsCompletion = false
         if thinkingBubbleWindow?.isVisible ?? false {
             thinkingBubbleWindow?.orderOut(nil)
         }
@@ -715,7 +717,18 @@ class WalkerCharacter {
         })
     }
 
+    // Cache bubble state to skip redundant updates
+    private var lastBubbleText: String = ""
+    private var lastBubbleIsCompletion: Bool = false
+
     func showBubble(text: String, isCompletion: Bool) {
+        // Skip redundant updates when nothing changed
+        if text == lastBubbleText && isCompletion == lastBubbleIsCompletion && (thinkingBubbleWindow?.isVisible ?? false) {
+            return
+        }
+        lastBubbleText = text
+        lastBubbleIsCompletion = isCompletion
+
         let t = resolvedTheme
         if thinkingBubbleWindow == nil {
             createThinkingBubble()
@@ -947,6 +960,10 @@ class WalkerCharacter {
 
     // MARK: - Frame Update
 
+    // Cache last position to skip redundant setFrameOrigin calls
+    private var lastSetX: CGFloat = -1
+    private var lastSetY: CGFloat = -1
+
     func update(dockX: CGFloat, dockWidth: CGFloat, dockTopY: CGFloat) {
         currentTravelDistance = max(dockWidth - displayWidth, 0)
         if isIdleForPopover {
@@ -954,7 +971,12 @@ class WalkerCharacter {
             let x = dockX + travelDistance * positionProgress + currentFlipCompensation
             let bottomPadding = displayHeight * 0.15
             let y = dockTopY - bottomPadding + yOffset
-            window.setFrameOrigin(NSPoint(x: x, y: y))
+            // Only update position if it actually changed
+            if x != lastSetX || y != lastSetY {
+                window.setFrameOrigin(NSPoint(x: x, y: y))
+                lastSetX = x
+                lastSetY = y
+            }
             updatePopoverPosition()
             updateThinkingBubble()
             return
@@ -970,7 +992,12 @@ class WalkerCharacter {
                 let x = dockX + travelDistance * positionProgress + currentFlipCompensation
                 let bottomPadding = displayHeight * 0.15
                 let y = dockTopY - bottomPadding + yOffset
-                window.setFrameOrigin(NSPoint(x: x, y: y))
+                // Only update position if it actually changed
+                if x != lastSetX || y != lastSetY {
+                    window.setFrameOrigin(NSPoint(x: x, y: y))
+                    lastSetX = x
+                    lastSetY = y
+                }
                 return
             }
         }
