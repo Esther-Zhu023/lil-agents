@@ -11,7 +11,7 @@
 		A10000010000000000000002 /* walk-bruce-01.mov in Resources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000002 /* walk-bruce-01.mov */; };
 		A10000010000000000000003 /* walk-jazz-01.mov in Resources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000005 /* walk-jazz-01.mov */; };
 		A10000010000000000000004 /* walk-nova-01.mov in Resources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000006 /* walk-nova-01.mov */; };
-		A10000010000000000000005 /* walk-zoey-01.mov in Resources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000007 /* walk-zoey-01.mov */; };
+		A10000010000000000000036 /* walk-zoey-01.mov in Resources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000056 /* walk-zoey-01.mov */; };
 		A10000010000000000000005 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000007 /* Assets.xcassets */; };
 		A10000010000000000000010 /* Sounds in Resources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000010 /* Sounds */; };
 		A10000010000000000000020 /* PopoverTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000020 /* PopoverTheme.swift */; };
@@ -29,7 +29,7 @@
 		A10000010000000000000036 /* OpenCodeSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000035 /* OpenCodeSession.swift */; };
 		A10000010000000000000037 /* DockVisibility.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000036 /* DockVisibility.swift */; };
 		A10000010000000000000038 /* OpenClawSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000037 /* OpenClawSession.swift */; };
-137A9867EA7B4257A450EC23 /* HermesSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = B639F44C28344F81A5FE1DE4 /* HermesSession.swift */; };
+		A10000010000000000000039 /* HermesSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000020000000000000039 /* HermesSession.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -39,7 +39,7 @@
 		A10000020000000000000004 /* LilAgents.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = LilAgents.entitlements; sourceTree = "<group>"; };
 		A10000020000000000000005 /* walk-jazz-01.mov */ = {isa = PBXFileReference; lastKnownFileType = video.quicktime; path = "walk-jazz-01.mov"; sourceTree = "<group>"; };
 		A10000020000000000000006 /* walk-nova-01.mov */ = {isa = PBXFileReference; lastKnownFileType = video.quicktime; path = "walk-nova-01.mov"; sourceTree = "<group>"; };
-		A10000020000000000000007 /* walk-zoey-01.mov */ = {isa = PBXFileReference; lastKnownFileType = video.quicktime; path = "walk-zoey-01.mov"; sourceTree = "<group>"; };
+		A10000020000000000000056 /* walk-zoey-01.mov */ = {isa = PBXFileReference; lastKnownFileType = video.quicktime; path = "walk-zoey-01.mov"; sourceTree = "<group>"; };
 		A10000020000000000000007 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		A10000020000000000000010 /* Sounds */ = {isa = PBXFileReference; lastKnownFileType = folder; path = Sounds; sourceTree = "<group>"; };
 		A10000020000000000000020 /* PopoverTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PopoverTheme.swift; sourceTree = "<group>"; };
@@ -56,7 +56,7 @@
 		A10000020000000000000035 /* OpenCodeSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenCodeSession.swift; sourceTree = "<group>"; };
 		A10000020000000000000036 /* DockVisibility.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DockVisibility.swift; sourceTree = "<group>"; };
 		A10000020000000000000037 /* OpenClawSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenClawSession.swift; sourceTree = "<group>"; };
-B639F44C28344F81A5FE1DE4 /* HermesSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HermesSession.swift; sourceTree = "<group>"; };
+		A10000020000000000000039 /* HermesSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HermesSession.swift; sourceTree = "<group>"; };
 		A10000030000000000000001 /* lil agents.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "lil agents.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -94,6 +94,7 @@ B639F44C28344F81A5FE1DE4 /* HermesSession.swift */ = {isa = PBXFileReference; la
 				A10000020000000000000034 /* GeminiSession.swift */,
 				A10000020000000000000035 /* OpenCodeSession.swift */,
 				A10000020000000000000037 /* OpenClawSession.swift */,
+				A10000020000000000000039 /* HermesSession.swift */,
 				A10000020000000000000036 /* DockVisibility.swift */,
 				A10000020000000000000023 /* TerminalView.swift */,
 				A10000020000000000000024 /* WalkerCharacter.swift */,
@@ -101,12 +102,10 @@ B639F44C28344F81A5FE1DE4 /* HermesSession.swift */ = {isa = PBXFileReference; la
 				A10000020000000000000002 /* walk-bruce-01.mov */,
 				A10000020000000000000005 /* walk-jazz-01.mov */,
 				A10000020000000000000006 /* walk-nova-01.mov */,
-				A10000020000000000000007 /* walk-zoey-01.mov */,
 				A10000020000000000000007 /* Assets.xcassets */,
 				A10000020000000000000010 /* Sounds */,
 				A10000020000000000000003 /* Info.plist */,
 				A10000020000000000000004 /* LilAgents.entitlements */,
-							B639F44C28344F81A5FE1DE4 /* HermesSession.swift */,
 			);
 			path = LilAgents;
 			sourceTree = "<group>";
@@ -186,7 +185,7 @@ B639F44C28344F81A5FE1DE4 /* HermesSession.swift */ = {isa = PBXFileReference; la
 				A10000010000000000000002 /* walk-bruce-01.mov in Resources */,
 				A10000010000000000000003 /* walk-jazz-01.mov in Resources */,
 				A10000010000000000000004 /* walk-nova-01.mov in Resources */,
-				A10000010000000000000005 /* walk-zoey-01.mov in Resources */,
+				A10000010000000000000036 /* walk-zoey-01.mov in Resources */,
 				A10000010000000000000005 /* Assets.xcassets in Resources */,
 				A10000010000000000000010 /* Sounds in Resources */,
 			);
@@ -211,7 +210,7 @@ B639F44C28344F81A5FE1DE4 /* HermesSession.swift */ = {isa = PBXFileReference; la
 				A10000010000000000000036 /* OpenCodeSession.swift in Sources */,
 				A10000010000000000000037 /* DockVisibility.swift in Sources */,
 				A10000010000000000000038 /* OpenClawSession.swift in Sources */,
-				137A9867EA7B4257A450EC23 /* HermesSession.swift in Sources */,
+				A10000010000000000000039 /* HermesSession.swift in Sources */,
 				A10000010000000000000023 /* TerminalView.swift in Sources */,
 				A10000010000000000000024 /* WalkerCharacter.swift in Sources */,
 				A10000010000000000000025 /* LilAgentsController.swift in Sources */,

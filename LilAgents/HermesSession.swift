@@ -10,8 +10,6 @@ class HermesSession: AgentSession {
     private var pendingMessages: [String] = []
     private(set) var isRunning = false
     private(set) var isBusy = false
-    /// Track whether we already fired onTurnComplete to avoid duplicate calls
-    private var didFireTurnComplete = false
 
     var onText: ((String) -> Void)?
     var onError: ((String) -> Void)?
@@ -56,7 +54,6 @@ class HermesSession: AgentSession {
 
     private func sendInternal(message: String) {
         isBusy = true
-        didFireTurnComplete = false
         currentResponseText = ""
         history.append(AgentMessage(role: .user, text: message))
 
@@ -65,7 +62,7 @@ class HermesSession: AgentSession {
             onError?(msg)
             history.append(AgentMessage(role: .error, text: msg))
             isBusy = false
-            fireTurnComplete()
+            onTurnComplete?()
             return
         }
 
@@ -82,27 +79,8 @@ class HermesSession: AgentSession {
 
         proc.terminationHandler = { [weak self] _ in
             DispatchQueue.main.async {
-                guard let self = self else { return }
-                // Only fire turn complete if result type didn't already do it
-                if !self.didFireTurnComplete {
-                    // Flush any remaining buffered output first
-                    if !self.lineBuffer.isEmpty {
-                        let remaining = self.lineBuffer
-                        self.lineBuffer = ""
-                        if !remaining.isEmpty {
-                            self.parseLine(remaining)
-                        }
-                    }
-                    // Save accumulated text to history if not already saved by result
-                    if !self.currentResponseText.isEmpty {
-                        self.history.append(AgentMessage(role: .assistant, text: self.currentResponseText))
-                        self.currentResponseText = ""
-                    }
-                    self.isBusy = false
-                    self.fireTurnComplete()
-                }
-                self.process = nil
-                self.inputPipe = nil
+                self?.isBusy = false
+                self?.onTurnComplete?()
             }
         }
 
@@ -135,7 +113,7 @@ class HermesSession: AgentSession {
             onError?(msg)
             history.append(AgentMessage(role: .error, text: msg))
             isBusy = false
-            fireTurnComplete()
+            onTurnComplete?()
         }
     }
 
@@ -148,12 +126,6 @@ class HermesSession: AgentSession {
         isRunning = false
         isBusy = false
         pendingMessages.removeAll()
-    }
-
-    private func fireTurnComplete() {
-        guard !didFireTurnComplete else { return }
-        didFireTurnComplete = true
-        onTurnComplete?()
     }
 
     // MARK: - NDJSON Parsing
@@ -196,29 +168,17 @@ class HermesSession: AgentSession {
 
         case "result":
             isBusy = false
-            // Result contains the full assistant response — save to history.
-            // Only use result text if we haven't already accumulated streaming text,
-            // otherwise we'd duplicate the response.
-            let resultText = json["result"] as? String ?? ""
-            if currentResponseText.isEmpty && !resultText.isEmpty {
-                // No streaming text was received; use the result field instead
-                history.append(AgentMessage(role: .assistant, text: resultText))
-                onText?(resultText)
-            } else if !currentResponseText.isEmpty {
-                // We already streamed the text; just save it to history (don't re-display)
-                history.append(AgentMessage(role: .assistant, text: currentResponseText))
-            } else if !resultText.isEmpty {
-                history.append(AgentMessage(role: .assistant, text: resultText))
+            let result = json["result"] as? String ?? ""
+            if !result.isEmpty {
+                history.append(AgentMessage(role: .assistant, text: result))
             }
             currentResponseText = ""
-            fireTurnComplete()
 
         case "error":
             isBusy = false
             let msg = json["message"] as? String ?? "Unknown error"
             history.append(AgentMessage(role: .error, text: msg))
             onError?(msg)
-            fireTurnComplete()
 
         default:
             break

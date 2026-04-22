@@ -8,35 +8,38 @@ class KeyableWindow: NSWindow {
 class CharacterContentView: NSView {
     weak var character: WalkerCharacter?
 
-    // Cache hit-test result briefly to avoid expensive CGWindowListCreateImage on every event
-    private var lastHitTestResult: NSView? = nil
-    private var lastHitTestTime: CFTimeInterval = 0
-    private static let hitTestCacheInterval: CFTimeInterval = 0.05  // 50ms cache
+    // Hit-test cache: avoid expensive CGWindowListCreateImage on every mouse move
+    private var lastHitTestResult: NSView?
+    private var lastHitTestTime: CACurrentMediaTime = 0
+    private static let hitTestCacheDuration: CACurrentMediaTime = 0.05 // 50ms
 
     override func hitTest(_ point: NSPoint) -> NSView? {
-        let localPoint = convert(point, from: superview)
-        guard bounds.contains(localPoint) else { return nil }
-
         let now = CACurrentMediaTime()
-        if now - lastHitTestTime < Self.hitTestCacheInterval {
-            if let cached = lastHitTestResult {
-                return cached
-            }
+        if now - lastHitTestTime < Self.hitTestCacheDuration {
+            return lastHitTestResult
         }
         lastHitTestTime = now
+
+        let localPoint = convert(point, from: superview)
+        guard bounds.contains(localPoint) else {
+            lastHitTestResult = nil
+            return nil
+        }
 
         // AVPlayerLayer is GPU-rendered so layer.render(in:) won't capture video pixels.
         // Use CGWindowListCreateImage to sample actual on-screen alpha at click point.
         let screenPoint = window?.convertPoint(toScreen: convert(localPoint, to: nil)) ?? .zero
-        // Use the full virtual display height for the CG coordinate flip, not just
-        // the main screen. NSScreen coordinates have origin at bottom-left of the
-        // primary display, while CG uses top-left. The primary screen's height is
-        // the correct basis for the flip across all monitors.
-        guard let primaryScreen = NSScreen.screens.first else { return nil }
+        guard let primaryScreen = NSScreen.screens.first else {
+            lastHitTestResult = nil
+            return nil
+        }
         let flippedY = primaryScreen.frame.height - screenPoint.y
 
         let captureRect = CGRect(x: screenPoint.x - 0.5, y: flippedY - 0.5, width: 1, height: 1)
-        guard let windowID = window?.windowNumber, windowID > 0 else { return nil }
+        guard let windowID = window?.windowNumber, windowID > 0 else {
+            lastHitTestResult = nil
+            return nil
+        }
 
         if let image = CGWindowListCreateImage(
             captureRect,

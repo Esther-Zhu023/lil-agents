@@ -93,6 +93,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         novaProviderItem.submenu = buildProviderSubmenu(for: 2, charName: "Nova")
         menu.addItem(novaProviderItem)
 
+        let zoeyProviderItem = NSMenuItem(title: "Zoey's AI", action: nil, keyEquivalent: "")
+        zoeyProviderItem.submenu = buildProviderSubmenu(for: 3, charName: "Zoey")
+        menu.addItem(zoeyProviderItem)
+
         menu.addItem(NSMenuItem.separator())
 
         let soundItem = NSMenuItem(title: "Sounds", action: #selector(toggleSounds(_:)), keyEquivalent: "")
@@ -145,7 +149,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         menu.addItem(NSMenuItem.separator())
 
-        let updateItem = NSMenuItem(title: "Check for Updates\u{2026}", action: #selector(SPUStandardUpdaterController.checkForUpdates(_:)), keyEquivalent: "")
+        let updateItem = NSMenuItem(title: "Check for Updates…", action: #selector(SPUStandardUpdaterController.checkForUpdates(_:)), keyEquivalent: "")
         updateItem.target = updaterController
         menu.addItem(updateItem)
 

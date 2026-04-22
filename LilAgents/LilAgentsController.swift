@@ -7,8 +7,7 @@ class LilAgentsController {
     var pinnedScreenIndex: Int = -1
     private static let onboardingKey = "hasCompletedOnboarding"
     private var isHiddenForEnvironment = false
-    // Throttle: skip every other display link callback to target ~30fps
-    private var tickCounter = 0
+    private var tickCounter: Int = 0
 
     func start() {
         let char1 = WalkerCharacter(videoName: "walk-bruce-01", name: "Bruce")
@@ -243,7 +242,7 @@ class LilAgentsController {
     }
 
     func tick() {
-        // Throttle to ~30fps: skip every other callback
+        // Throttle to ~30fps: skip every other CVDisplayLink callback
         tickCounter += 1
         if tickCounter % 2 != 0 { return }
 
@@ -263,18 +262,16 @@ class LilAgentsController {
 
         let activeChars = characters.filter { $0.window?.isVisible == true && $0.isManuallyVisible }
 
+        // Skip entire tick when all characters are idle/paused (no animation needed)
+        let anyAnimating = activeChars.contains { $0.isWalking || $0.isIdleForPopover || $0.isAgentBusy }
+        if !anyAnimating {
+            let now = CACurrentMediaTime()
+            let anyReadyToWalk = activeChars.contains { $0.isPaused && now >= $0.pauseEndTime }
+            if !anyReadyToWalk { return }
+        }
+
         let now = CACurrentMediaTime()
         let anyWalking = activeChars.contains { $0.isWalking }
-
-        // Quick check: if no character needs updating, skip expensive frame work
-        let needsUpdate = activeChars.contains { char in
-            char.isWalking || char.isIdleForPopover || (char.isPaused && now >= char.pauseEndTime) || char.isAgentBusy
-        }
-        if !needsUpdate && !anyWalking {
-            // All characters are paused and idle — nothing to animate
-            return
-        }
-
         for char in activeChars {
             if char.isIdleForPopover { continue }
             if char.isPaused && now >= char.pauseEndTime && anyWalking {

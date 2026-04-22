@@ -73,9 +73,12 @@ class WalkerCharacter {
     var walkStartPos: CGFloat = 0.0
     var walkEndPos: CGFloat = 0.0
     var currentTravelDistance: CGFloat = 500.0
-    // Walk endpoints stored in pixels for consistent speed across screen switches
     var walkStartPixel: CGFloat = 0.0
     var walkEndPixel: CGFloat = 0.0
+
+    // Position cache: skip redundant setFrameOrigin calls
+    private var lastSetX: CGFloat = -.infinity
+    private var lastSetY: CGFloat = -.infinity
 
     // Onboarding
     var isOnboarding = false
@@ -653,6 +656,10 @@ class WalkerCharacter {
     private static let bubbleH: CGFloat = 26
     private var phraseAnimating = false
 
+    // Bubble cache: skip redundant showBubble redraws
+    private var lastBubbleText: String = ""
+    private var lastBubbleIsCompletion: Bool = false
+
     func updateThinkingBubble() {
         let now = CACurrentMediaTime()
 
@@ -685,11 +692,11 @@ class WalkerCharacter {
     }
 
     private func hideBubble() {
-        lastBubbleText = ""
-        lastBubbleIsCompletion = false
         if thinkingBubbleWindow?.isVisible ?? false {
             thinkingBubbleWindow?.orderOut(nil)
         }
+        lastBubbleText = ""
+        lastBubbleIsCompletion = false
     }
 
     private func animatePhraseChange(to newText: String, isCompletion: Bool) {
@@ -717,15 +724,9 @@ class WalkerCharacter {
         })
     }
 
-    // Cache bubble state to skip redundant updates
-    private var lastBubbleText: String = ""
-    private var lastBubbleIsCompletion: Bool = false
-
     func showBubble(text: String, isCompletion: Bool) {
-        // Skip redundant updates when nothing changed
-        if text == lastBubbleText && isCompletion == lastBubbleIsCompletion && (thinkingBubbleWindow?.isVisible ?? false) {
-            return
-        }
+        // Skip redundant redraws
+        if text == lastBubbleText && isCompletion == lastBubbleIsCompletion { return }
         lastBubbleText = text
         lastBubbleIsCompletion = isCompletion
 
@@ -837,23 +838,18 @@ class WalkerCharacter {
 
     static var soundsEnabled = true
 
-    private static let completionSounds: [(name: String, ext: String)] = [
-        ("ping-aa", "mp3"), ("ping-bb", "mp3"), ("ping-cc", "mp3"),
-        ("ping-dd", "mp3"), ("ping-ee", "mp3"), ("ping-ff", "mp3"),
-        ("ping-gg", "mp3"), ("ping-hh", "mp3"), ("ping-jj", "m4a")
+    private static let characterSoundMap: [String: (name: String, ext: String)] = [
+        "Bruce": ("ping-aa", "mp3"),
+        "Jazz": ("ping-bb", "mp3"),
+        "Nova": ("ping-cc", "mp3"),
+        "Zoey": ("ping-dd", "mp3")
     ]
-    private static var lastSoundIndex: Int = -1
 
     func playCompletionSound() {
         guard Self.soundsEnabled else { return }
-        var idx: Int
-        repeat {
-            idx = Int.random(in: 0..<Self.completionSounds.count)
-        } while idx == Self.lastSoundIndex && Self.completionSounds.count > 1
-        Self.lastSoundIndex = idx
+        guard let soundInfo = Self.characterSoundMap[self.name] else { return }
 
-        let s = Self.completionSounds[idx]
-        if let url = Bundle.main.url(forResource: s.name, withExtension: s.ext, subdirectory: "Sounds"),
+        if let url = Bundle.main.url(forResource: soundInfo.name, withExtension: soundInfo.ext, subdirectory: "Sounds"),
            let sound = NSSound(contentsOf: url, byReference: true) {
             sound.play()
         }
@@ -960,9 +956,13 @@ class WalkerCharacter {
 
     // MARK: - Frame Update
 
-    // Cache last position to skip redundant setFrameOrigin calls
-    private var lastSetX: CGFloat = -1
-    private var lastSetY: CGFloat = -1
+    private func setWindowPosition(x: CGFloat, y: CGFloat) {
+        // Skip redundant setFrameOrigin calls (saves CA::Transaction overhead)
+        if x == lastSetX && y == lastSetY { return }
+        lastSetX = x
+        lastSetY = y
+        window.setFrameOrigin(NSPoint(x: x, y: y))
+    }
 
     func update(dockX: CGFloat, dockWidth: CGFloat, dockTopY: CGFloat) {
         currentTravelDistance = max(dockWidth - displayWidth, 0)
@@ -971,12 +971,7 @@ class WalkerCharacter {
             let x = dockX + travelDistance * positionProgress + currentFlipCompensation
             let bottomPadding = displayHeight * 0.15
             let y = dockTopY - bottomPadding + yOffset
-            // Only update position if it actually changed
-            if x != lastSetX || y != lastSetY {
-                window.setFrameOrigin(NSPoint(x: x, y: y))
-                lastSetX = x
-                lastSetY = y
-            }
+            setWindowPosition(x: x, y: y)
             updatePopoverPosition()
             updateThinkingBubble()
             return
@@ -992,12 +987,7 @@ class WalkerCharacter {
                 let x = dockX + travelDistance * positionProgress + currentFlipCompensation
                 let bottomPadding = displayHeight * 0.15
                 let y = dockTopY - bottomPadding + yOffset
-                // Only update position if it actually changed
-                if x != lastSetX || y != lastSetY {
-                    window.setFrameOrigin(NSPoint(x: x, y: y))
-                    lastSetX = x
-                    lastSetY = y
-                }
+                setWindowPosition(x: x, y: y)
                 return
             }
         }
@@ -1007,11 +997,9 @@ class WalkerCharacter {
             let videoTime = min(elapsed, videoDuration)
             let travelDistance = currentTravelDistance
 
-            // Interpolate in pixel space for consistent speed across screen changes
             let walkNorm = elapsed >= videoDuration ? 1.0 : movementPosition(at: videoTime)
             let currentPixel = walkStartPixel + (walkEndPixel - walkStartPixel) * walkNorm
 
-            // Convert pixel position back to progress for the current screen
             if travelDistance > 0 {
                 positionProgress = min(max(currentPixel / travelDistance, 0), 1)
             }
@@ -1025,7 +1013,7 @@ class WalkerCharacter {
             let x = dockX + travelDistance * positionProgress + currentFlipCompensation
             let bottomPadding = displayHeight * 0.15
             let y = dockTopY - bottomPadding + yOffset
-            window.setFrameOrigin(NSPoint(x: x, y: y))
+            setWindowPosition(x: x, y: y)
         }
 
         updateThinkingBubble()
