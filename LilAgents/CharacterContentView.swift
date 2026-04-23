@@ -10,8 +10,8 @@ class CharacterContentView: NSView {
 
     // Hit-test cache: avoid expensive CGWindowListCreateImage on every mouse move
     private var lastHitTestResult: NSView?
-    private var lastHitTestTime: CACurrentMediaTime = 0
-    private static let hitTestCacheDuration: CACurrentMediaTime = 0.05 // 50ms
+    private var lastHitTestTime: Double = 0
+    private static let hitTestCacheDuration: Double = 0.05 // 50ms
 
     override func hitTest(_ point: NSPoint) -> NSView? {
         let now = CACurrentMediaTime()
